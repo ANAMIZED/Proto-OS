@@ -1,0 +1,2260 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light">
+<title>PROTO — Unified Autonomous Protocols OS</title>
+<style>
+/* ============================================================
+   PROTO console — "the ledger room of the agent economy"
+   Palette: ledger #ECF1E4 · rule #C7D4BC · ink #1E2A24
+            seal #2F5D50 · stamp #B23A2B · carbon #5A665C · manila #E9DFC2
+   Type: Georgia (engraved display) · system sans (UI) · ui-monospace (figures)
+   ============================================================ */
+:root{
+  --ledger:#ECF1E4; --ledger-2:#E3EAD8; --rule:#C7D4BC; --rule-soft:#D8E2CE;
+  --ink:#1E2A24; --carbon:#5A665C; --seal:#2F5D50; --seal-soft:#DDE9E1;
+  --stamp:#B23A2B; --stamp-soft:#F0DBD5; --manila:#E9DFC2; --manila-edge:#CDBF95;
+  --white:#F7FAF2;
+  --serif:Georgia,'Iowan Old Style','Times New Roman',serif;
+  --sans:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --mono:ui-monospace,'SF Mono',SFMono-Regular,Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0}
+body{
+  background:var(--ledger);
+  background-image:repeating-linear-gradient(to bottom,transparent 0 27px,rgba(107,127,96,.10) 27px 28px);
+  color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.45;
+  min-height:100dvh;touch-action:manipulation;
+}
+button{font:inherit;color:inherit;cursor:pointer}
+input,select,textarea{font:inherit;font-size:16px;color:var(--ink)}
+:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.mono{font-family:var(--mono)}
+.small{font-size:12.5px;color:var(--carbon)}
+
+/* ---------- header ---------- */
+.hdr{
+  position:sticky;top:0;z-index:40;background:var(--ledger);
+  border-bottom:2px solid var(--ink);
+  padding:calc(10px + env(safe-area-inset-top)) 14px 8px;
+}
+.hdr-row{display:flex;align-items:center;gap:10px}
+.wordmark{font-family:var(--serif);font-weight:700;font-size:26px;letter-spacing:.14em;margin:0}
+.wordmark small{display:block;font-family:var(--sans);font-weight:400;font-size:10.5px;letter-spacing:.18em;color:var(--carbon);text-transform:uppercase}
+.seal{
+  margin-left:auto;display:inline-flex;align-items:center;gap:6px;
+  border:1.5px solid var(--seal);color:var(--seal);border-radius:3px;
+  font-family:var(--mono);font-size:11px;letter-spacing:.12em;padding:4px 8px;background:var(--seal-soft);
+}
+.seal.halted{border-color:var(--stamp);color:var(--stamp);background:var(--stamp-soft)}
+.seal .dot{width:7px;height:7px;border-radius:50%;background:currentColor}
+.btn-halt{
+  border:2px solid var(--stamp);color:var(--stamp);background:transparent;border-radius:3px;
+  font-family:var(--serif);font-weight:700;letter-spacing:.1em;font-size:13px;
+  min-height:40px;padding:0 12px;transform:rotate(-2deg);
+}
+.btn-halt.on{background:var(--stamp);color:var(--white)}
+
+/* ---------- tab rail (ledger index tabs) ---------- */
+.tabs{
+  position:sticky;top:calc(58px + env(safe-area-inset-top));z-index:39;
+  display:flex;gap:6px;overflow-x:auto;padding:8px 12px 0;background:var(--ledger);
+  border-bottom:1.5px solid var(--ink);scrollbar-width:none;
+}
+.tabs::-webkit-scrollbar{display:none}
+.tab{
+  flex:0 0 auto;border:1.5px solid var(--ink);border-bottom:none;background:var(--ledger-2);
+  border-radius:6px 6px 0 0;padding:9px 13px;min-height:42px;font-size:14px;color:var(--carbon);
+  white-space:nowrap;position:relative;
+}
+.tab[aria-selected="true"]{background:var(--white);color:var(--ink);font-weight:600;transform:translateY(1.5px)}
+.tab .badge{
+  position:absolute;top:-6px;right:-4px;background:var(--stamp);color:var(--white);
+  border-radius:9px;font-size:10.5px;font-family:var(--mono);padding:1px 6px;display:none;
+}
+.tab .badge.show{display:inline-block}
+
+/* ---------- layout ---------- */
+.main{padding:14px 12px calc(84px + env(safe-area-inset-bottom));max-width:760px;margin:0 auto}
+.panel{display:none}
+.panel.active{display:block;animation:rise .18s ease-out}
+@keyframes rise{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.h2{font-family:var(--serif);font-size:19px;margin:20px 0 8px;letter-spacing:.02em}
+.h2:first-child{margin-top:2px}
+.rulehr{border:none;border-top:1px solid var(--rule);margin:16px 0}
+
+/* ---------- cards & slips ---------- */
+.card{
+  background:var(--white);border:1.5px solid var(--ink);border-radius:3px;
+  padding:12px;margin:0 0 12px;box-shadow:2px 2px 0 rgba(30,42,36,.14);
+}
+.card h3{margin:0 0 6px;font-size:15px;font-weight:650}
+.slip{
+  background:var(--manila);border:1.5px solid var(--manila-edge);border-radius:2px;
+  padding:12px;margin:0 0 12px;position:relative;
+  clip-path:polygon(0 0,calc(100% - 14px) 0,100% 14px,100% 100%,0 100%);
+  box-shadow:2px 2px 0 rgba(30,42,36,.14);
+}
+.slip::after{content:"";position:absolute;top:0;right:0;border-style:solid;border-width:0 14px 14px 0;border-color:transparent var(--ledger) var(--manila-edge) transparent}
+.rowline{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.spread{justify-content:space-between}
+.kv{display:flex;justify-content:space-between;gap:10px;padding:3px 0;border-bottom:1px dotted var(--rule)}
+.kv:last-child{border-bottom:none}
+.kv b{font-weight:600}
+.amount{font-family:var(--mono);font-variant-numeric:tabular-nums}
+
+/* ---------- ledger table ---------- */
+.ledger-tape{border:1.5px solid var(--ink);border-radius:3px;background:var(--white);overflow:hidden}
+.tape-row{
+  padding:9px 12px;border-bottom:1px dashed var(--rule);
+  display:grid;grid-template-columns:1fr auto;gap:2px 10px;font-size:13.5px;
+}
+.tape-row:last-child{border-bottom:none}
+.tape-row .sub{grid-column:1/-1;font-size:12px;color:var(--carbon)}
+.tape-row.bad{background:var(--stamp-soft);border-left:4px solid var(--stamp)}
+.tape-empty{padding:16px;color:var(--carbon);font-size:13.5px}
+
+/* ---------- chips & tags ---------- */
+.chip{
+  display:inline-block;border:1px solid var(--ink);border-radius:10px;
+  font-size:11.5px;font-family:var(--mono);padding:2px 8px;margin:2px 4px 2px 0;background:var(--ledger-2);
+}
+.chip.seal-c{border-color:var(--seal);color:var(--seal);background:var(--seal-soft)}
+.chip.stamp-c{border-color:var(--stamp);color:var(--stamp);background:var(--stamp-soft)}
+.chip.manila-c{border-color:var(--manila-edge);background:var(--manila)}
+.chip.plain{border-color:var(--rule);color:var(--carbon);background:transparent}
+.chipbtn{min-height:34px;border:1.5px solid var(--ink);border-radius:16px;background:var(--ledger-2);font-size:13px;padding:4px 12px}
+.chipbtn[aria-pressed="true"]{background:var(--ink);color:var(--white)}
+
+/* ---------- buttons ---------- */
+.btn{
+  min-height:44px;border:1.5px solid var(--ink);border-radius:3px;background:var(--white);
+  padding:8px 14px;font-weight:600;font-size:14.5px;box-shadow:2px 2px 0 rgba(30,42,36,.2);
+}
+.btn:active{transform:translate(1px,1px);box-shadow:1px 1px 0 rgba(30,42,36,.2)}
+.btn.primary{background:var(--ink);color:var(--white)}
+.btn.seal-b{background:var(--seal);border-color:var(--seal);color:var(--white)}
+.btn.stamp-b{background:var(--white);border-color:var(--stamp);color:var(--stamp)}
+.btn.ghost{background:transparent;box-shadow:none}
+.btn.sm{min-height:36px;font-size:13px;padding:5px 10px}
+.btn[disabled]{opacity:.45;pointer-events:none}
+.btnrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+
+/* stamps (the signature) */
+.stampbtn{
+  font-family:var(--serif);font-weight:700;letter-spacing:.12em;text-transform:uppercase;
+  border:2.5px solid currentColor;border-radius:4px;background:transparent;
+  min-height:46px;padding:6px 16px;transform:rotate(-3deg);
+}
+.stampbtn.ok{color:var(--seal)} .stampbtn.no{color:var(--stamp)}
+.stamped{
+  display:inline-block;font-family:var(--serif);font-weight:700;letter-spacing:.14em;text-transform:uppercase;
+  border:3px solid currentColor;border-radius:4px;padding:3px 12px;transform:rotate(-6deg);
+  mix-blend-mode:multiply;opacity:.9;
+}
+.stamped.ok{color:var(--seal)} .stamped.no{color:var(--stamp)}
+@keyframes thump{0%{transform:rotate(-6deg) scale(1.7);opacity:0}60%{transform:rotate(-6deg) scale(.94);opacity:1}100%{transform:rotate(-6deg) scale(1)}}
+.stamped.fresh{animation:thump .28s ease-out}
+
+/* ---------- forms ---------- */
+.field{margin:8px 0}
+.field label{display:block;font-size:12.5px;color:var(--carbon);margin-bottom:3px;letter-spacing:.04em}
+.field input,.field select,.field textarea{
+  width:100%;border:1.5px solid var(--ink);border-radius:3px;background:var(--white);
+  padding:10px;min-height:44px;
+}
+.field textarea{min-height:66px;resize:vertical}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+
+/* ---------- budget bars ---------- */
+.bud{margin:0 0 10px}
+.bud .bar{height:12px;border:1.5px solid var(--ink);border-radius:2px;background:var(--white);overflow:hidden}
+.bud .fill{height:100%;background:var(--seal)}
+.bud.warn .fill{background:var(--stamp)}
+.bud .lbl{display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:3px}
+.indent1{margin-left:16px}.indent2{margin-left:32px}
+
+/* ---------- event feed ---------- */
+.evt{display:grid;grid-template-columns:74px 1fr;gap:8px;padding:8px 10px;border-bottom:1px dashed var(--rule);font-size:13px;background:var(--white)}
+.evt:last-child{border-bottom:none}
+.evt .t{font-family:var(--mono);font-size:11px;color:var(--carbon)}
+.evt .tag{font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;display:inline-block;margin-right:6px;padding:0 5px;border:1px solid currentColor;border-radius:8px}
+.evt.run .tag{color:var(--seal)} .evt.tool .tag{color:var(--seal)}
+.evt.text .tag{color:var(--ink)} .evt.state .tag{color:var(--carbon)}
+.evt.human .tag{color:#8a6d1a} .evt.error .tag{color:var(--stamp)}
+.evt.human{background:var(--manila)}
+.evt.error{background:var(--stamp-soft)}
+
+/* ---------- products ---------- */
+.prodgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.prod{background:var(--white);border:1.5px solid var(--ink);border-radius:3px;padding:10px;display:flex;flex-direction:column;gap:6px;box-shadow:2px 2px 0 rgba(30,42,36,.14)}
+.prod .ic{font-size:30px;line-height:1}
+.prod .nm{font-weight:600;font-size:14px}
+.prod .pr{font-family:var(--mono);font-size:15px}
+
+/* ---------- modal sheet ---------- */
+.sheetwrap{position:fixed;inset:0;z-index:60;display:none}
+.sheetwrap.open{display:block}
+.scrim{position:absolute;inset:0;background:rgba(30,42,36,.42)}
+.sheet{
+  position:absolute;left:0;right:0;bottom:0;max-height:86dvh;overflow:auto;
+  background:var(--ledger);border-top:2px solid var(--ink);border-radius:10px 10px 0 0;
+  padding:14px 14px calc(18px + env(safe-area-inset-bottom));max-width:760px;margin:0 auto;
+}
+.sheet h3{font-family:var(--serif);font-size:18px;margin:0 0 10px}
+.codebox{font-family:var(--mono);font-size:11.5px;background:var(--white);border:1px solid var(--rule);border-radius:3px;padding:8px;overflow:auto;white-space:pre-wrap;word-break:break-word}
+
+/* ---------- chain steps ---------- */
+.step{display:flex;gap:8px;align-items:flex-start;padding:7px 0;border-bottom:1px dotted var(--rule);font-size:13.5px}
+.step:last-child{border-bottom:none}
+.step .mk{font-family:var(--mono);flex:0 0 auto;width:20px;text-align:center}
+.step.ok .mk{color:var(--seal)} .step.no .mk{color:var(--stamp)} .step.wait .mk{color:var(--carbon)}
+
+/* ---------- toasts & fab ---------- */
+.toasts{position:fixed;left:12px;right:12px;bottom:calc(14px + env(safe-area-inset-bottom));z-index:80;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+.toast{
+  background:var(--ink);color:var(--white);border-radius:4px;padding:11px 13px;font-size:13.5px;
+  box-shadow:0 4px 14px rgba(30,42,36,.35);animation:rise .18s ease-out;
+}
+.toast.err{background:var(--stamp)} .toast.ok{background:var(--seal)}
+.fab{
+  position:fixed;right:14px;bottom:calc(66px + env(safe-area-inset-bottom));z-index:70;display:none;
+  background:var(--manila);border:2px solid var(--ink);border-radius:20px;min-height:44px;
+  padding:8px 14px;font-weight:700;font-size:13.5px;box-shadow:2px 3px 0 rgba(30,42,36,.3);
+}
+.fab.show{display:block}
+
+/* break marker in audit */
+.break-seam{border-top:3px dashed var(--stamp);position:relative;margin:2px 0}
+.break-seam span{position:absolute;right:8px;top:-11px;background:var(--stamp);color:var(--white);font-family:var(--mono);font-size:10px;padding:1px 7px;border-radius:8px}
+
+/* ---------- constellation ---------- */
+.gtoolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 0 8px}
+.gwrap{border:1.5px solid var(--ink);border-radius:3px;background:var(--white);
+  box-shadow:2px 2px 0 rgba(30,42,36,.14);overflow:hidden;position:relative;touch-action:none;height:380px}
+.gwrap canvas{display:block;width:100%;height:100%}
+.glegend{display:flex;flex-wrap:wrap;gap:4px 12px;margin:8px 0 10px;font-size:11.5px;color:var(--carbon)}
+.glegend b{font-family:var(--mono);font-style:normal}
+
+@media (prefers-reduced-motion:reduce){
+  *{animation:none !important;transition:none !important}
+}
+@media (min-width:700px){
+  .grid2-wide{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+}
+</style>
+</head>
+<body>
+<header class="hdr">
+  <div class="hdr-row">
+    <h1 class="wordmark">PROTO<small>Unified Autonomous Protocols OS</small></h1>
+    <span class="seal" id="seal"><span class="dot"></span><span id="sealTxt">RUNNING</span></span>
+    <button class="btn-halt" id="haltBtn" aria-pressed="false">HALT</button>
+  </div>
+</header>
+
+<nav class="tabs" id="tabs" role="tablist" aria-label="Sections"></nav>
+
+<main class="main" id="main"></main>
+
+<button class="fab" id="fab">Approvals <span id="fabN" class="mono">0</span></button>
+<div class="toasts" id="toasts" aria-live="polite"></div>
+
+<div class="sheetwrap" id="sheetwrap">
+  <div class="scrim" id="scrim"></div>
+  <div class="sheet" id="sheet" role="dialog" aria-modal="true"></div>
+</div>
+
+<script>
+'use strict';
+/* ================= utilities ================= */
+function utf8(s){return unescape(encodeURIComponent(s));}
+function sha256(ascii){
+  function rr(v,a){return (v>>>a)|(v<<(32-a));}
+  var maxWord=Math.pow(2,32),result='',words=[],asciiBitLength=ascii.length*8;
+  var hash=sha256.h=sha256.h||[],k=sha256.k=sha256.k||[],primeCounter=k.length,isComposite={};
+  for(var candidate=2;primeCounter<64;candidate++){
+    if(!isComposite[candidate]){
+      for(var m=0;m<313;m+=candidate){isComposite[m]=candidate;}
+      hash[primeCounter]=(Math.pow(candidate,.5)*maxWord)|0;
+      k[primeCounter++]=(Math.pow(candidate,1/3)*maxWord)|0;
+    }
+  }
+  ascii+='\x80';
+  while(ascii.length%64-56) ascii+='\x00';
+  for(var i=0;i<ascii.length;i++){
+    var j=ascii.charCodeAt(i); if(j>>8) return '';
+    words[i>>2]|=j<<((3-i)%4)*8;
+  }
+  words[words.length]=(asciiBitLength/maxWord)|0;
+  words[words.length]=asciiBitLength;
+  for(var jj=0;jj<words.length;){
+    var w=words.slice(jj,jj+=16),oldHash=hash.slice(0,8);
+    for(i=0;i<64;i++){
+      var w15=w[i-15],w2=w[i-2],a=hash[0],e=hash[4];
+      var t1=hash[7]+(rr(e,6)^rr(e,11)^rr(e,25))+((e&hash[5])^((~e)&hash[6]))+k[i]
+        +(w[i]=(i<16)?w[i]:(w[i-16]+(rr(w15,7)^rr(w15,18)^(w15>>>3))+w[i-7]+(rr(w2,17)^rr(w2,19)^(w2>>>10)))|0);
+      var t2=(rr(a,2)^rr(a,13)^rr(a,22))+((a&hash[1])^(a&hash[2])^(hash[1]&hash[2]));
+      hash=[(t1+t2)|0].concat(hash); hash[4]=(hash[4]+t1)|0;
+    }
+    for(i=0;i<8;i++){hash[i]=(hash[i]+oldHash[i])|0;}
+  }
+  for(i=0;i<8;i++){for(var b=3;b+1;b--){var v=(hash[i]>>(b*8))&255;result+=((v<16)?0:'')+v.toString(16);}}
+  return result;
+}
+function sha(s){return sha256(utf8(s));}
+function cjson(o){ /* canonical JSON: sorted keys, stable */
+  if(o===null||typeof o!=='object') return JSON.stringify(o);
+  if(Array.isArray(o)) return '['+o.map(cjson).join(',')+']';
+  return '{'+Object.keys(o).sort().map(k=>JSON.stringify(k)+':'+cjson(o[k])).join(',')+'}';
+}
+var _idn=0;
+function newId(p){_idn++;return p+'_'+(Date.now().toString(36).slice(-4))+(Math.random().toString(36).slice(2,7))+_idn.toString(36);}
+function nowIso(){return new Date().toISOString();}
+function tShort(iso){var d=new Date(iso);return d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'});}
+function money(n){return '$'+(Math.round(n*100)/100).toFixed(2);}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function stub(h,n){return (h||'').slice(0,n||10);}
+function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
+
+/* ---- safe condition evaluator (CEL-like, whitelisted) ---- */
+/* fields: amount, currency, category, action, actor, hour, spent_24h, name */
+function evalCond(expr,ctx){
+  var toks=[],i=0,s=expr;
+  function isW(c){return /\s/.test(c);} function isD(c){return /[0-9.]/.test(c);}
+  function isA(c){return /[A-Za-z_]/.test(c);}
+  while(i<s.length){
+    var c=s[i];
+    if(isW(c)){i++;continue;}
+    if(isD(c)){var j=i;while(j<s.length&&isD(s[j]))j++;toks.push({t:'num',v:parseFloat(s.slice(i,j))});i=j;continue;}
+    if(isA(c)){var j2=i;while(j2<s.length&&/[A-Za-z0-9_]/.test(s[j2]))j2++;toks.push({t:'id',v:s.slice(i,j2)});i=j2;continue;}
+    if(c==='"'||c==="'"){var q=c,j3=i+1,buf='';while(j3<s.length&&s[j3]!==q){buf+=s[j3++];}if(s[j3]!==q)throw Error('unterminated string');toks.push({t:'str',v:buf});i=j3+1;continue;}
+    var two=s.slice(i,i+2);
+    if(['==','!=','>=','<=','&&','||'].indexOf(two)>=0){toks.push({t:'op',v:two});i+=2;continue;}
+    if('()<>!'.indexOf(c)>=0){toks.push({t:'op',v:c});i++;continue;}
+    throw Error('bad char '+c);
+  }
+  var p=0;
+  function peek(){return toks[p];} function eat(v){var t=toks[p];if(!t||(v&&t.v!==v))throw Error('expected '+v);p++;return t;}
+  function prim(){
+    var t=peek(); if(!t)throw Error('eof');
+    if(t.t==='num'){p++;return t.v;}
+    if(t.t==='str'){p++;return t.v;}
+    if(t.t==='id'){p++;
+      if(t.v==='true')return true; if(t.v==='false')return false;
+      var v=ctx[t.v]; return v===undefined?null:v;}
+    if(t.v==='('){p++;var e=orE();eat(')');return e;}
+    if(t.v==='!'){p++;return !prim();}
+    throw Error('unexpected '+t.v);
+  }
+  function cmp(){
+    var l=prim(),t=peek();
+    if(t&&t.t==='op'&&['==','!=','>','<','>=','<='].indexOf(t.v)>=0){
+      p++;var r=prim();
+      switch(t.v){
+        case '==':return l===r; case '!=':return l!==r;
+        case '>':return (typeof l==='number'&&typeof r==='number')?l>r:false;
+        case '<':return (typeof l==='number'&&typeof r==='number')?l<r:false;
+        case '>=':return (typeof l==='number'&&typeof r==='number')?l>=r:false;
+        case '<=':return (typeof l==='number'&&typeof r==='number')?l<=r:false;
+      }
+    }
+    return l;
+  }
+  function andE(){var l=cmp();while(peek()&&peek().v==='&&'){p++;var r=cmp();l=Boolean(l)&&Boolean(r);}return l;}
+  function orE(){var l=andE();while(peek()&&peek().v==='||'){p++;var r=andE();l=Boolean(l)||Boolean(r);}return l;}
+  var out=orE();
+  if(p<toks.length)throw Error('trailing tokens');
+  return Boolean(out);
+}
+function matchAction(pattern,action){
+  if(pattern==='*')return true;
+  if(pattern.endsWith('*'))return action.startsWith(pattern.slice(0,-1));
+  return pattern===action;
+}
+
+/* ================= engine: audit ================= */
+class AuditLog{
+  constructor(){this.entries=[];}
+  log(actor,action,data){
+    var prev=this.entries.length?this.entries[this.entries.length-1].hash:'GENESIS';
+    var e={seq:this.entries.length,ts:nowIso(),actor:actor,action:action,data:data||{},prev:prev};
+    e.hash=sha(cjson({seq:e.seq,ts:e.ts,actor:e.actor,action:e.action,data:e.data,prev:e.prev}));
+    this.entries.push(e);return e;
+  }
+  verify(){
+    var prev='GENESIS';
+    for(var i=0;i<this.entries.length;i++){
+      var e=this.entries[i];
+      var h=sha(cjson({seq:e.seq,ts:e.ts,actor:e.actor,action:e.action,data:e.data,prev:e.prev}));
+      if(e.prev!==prev||e.hash!==h)return {ok:false,first_bad:i};
+      prev=e.hash;
+    }
+    return {ok:true,first_bad:null};
+  }
+  exportJsonl(){return this.entries.map(e=>JSON.stringify(e)).join('\n');}
+}
+
+/* ================= engine: identity ================= */
+/* Demo signature backend: deterministic hash-MAC over canonical bytes.
+   (Browser build of the Ed25519/HMAC backend in the reference impl.) */
+class Identity{
+  constructor(name,kind){
+    this.name=name;this.kind=kind; /* user|agent|merchant|org */
+    this.secret=newId('k')+Math.random().toString(36).slice(2);
+    this.did='did:proto:'+stub(sha(this.secret+':'+name),24);
+    this.fpr=stub(sha('pub:'+this.secret),16);
+    this.vcs=[]; this.created=nowIso();
+  }
+  sign(obj){return sha(this.secret+'|'+sha(cjson(obj)));}
+  static verify(id,obj,sig){return id?(id.sign(obj)===sig):false;}
+}
+class IdentityHub{
+  constructor(os){this.os=os;this.byDid={};this.tokens={};}
+  create(name,kind){var id=new Identity(name,kind);this.byDid[id.did]=id;
+    this.os.audit.log(id.did,'identity.created',{name:name,kind:kind,fpr:id.fpr});return id;}
+  get(did){return this.byDid[did]||null;}
+  issueVC(issuer,subject,claims,ttlMin){
+    var vc={id:newId('vc'),type:'VerifiableCredential',issuer:issuer.did,subject:subject.did,
+      claims:claims,issued:nowIso(),expires:new Date(Date.now()+(ttlMin||60)*60000).toISOString()};
+    vc.proof={method:'proto-mac-2026',sig:issuer.sign({id:vc.id,issuer:vc.issuer,subject:vc.subject,claims:vc.claims,expires:vc.expires})};
+    subject.vcs.push(vc);
+    this.os.audit.log(issuer.did,'vc.issued',{vc:vc.id,subject:subject.did,claims:claims});
+    return vc;
+  }
+  verifyVC(vc){
+    var iss=this.get(vc.issuer); if(!iss)return {ok:false,reason:'unknown issuer'};
+    if(new Date(vc.expires)<new Date())return {ok:false,reason:'expired'};
+    var ok=Identity.verify(iss,{id:vc.id,issuer:vc.issuer,subject:vc.subject,claims:vc.claims,expires:vc.expires},vc.proof.sig);
+    return ok?{ok:true}:{ok:false,reason:'bad signature'};
+  }
+  issueToken(subject,audience,ttlMin,act){
+    var tk={id:newId('tok'),sub:subject.did,aud:audience,exp:new Date(Date.now()+(ttlMin||15)*60000).toISOString(),act:act||[]};
+    tk.sig=subject.sign({id:tk.id,sub:tk.sub,aud:tk.aud,exp:tk.exp,act:tk.act});
+    this.tokens[tk.id]={tk:tk,revoked:false};
+    this.os.audit.log(subject.did,'token.issued',{token:tk.id,aud:audience,act:act||[]});
+    return tk;
+  }
+  verifyToken(tk,audience){
+    var rec=this.tokens[tk.id]; if(!rec)return {ok:false,reason:'unknown token'};
+    if(rec.revoked)return {ok:false,reason:'revoked'};
+    if(new Date(tk.exp)<new Date())return {ok:false,reason:'expired'};
+    if(audience&&tk.aud!==audience)return {ok:false,reason:'audience mismatch'};
+    var subj=this.get(tk.sub); if(!subj)return {ok:false,reason:'unknown subject'};
+    var ok=Identity.verify(subj,{id:tk.id,sub:tk.sub,aud:tk.aud,exp:tk.exp,act:tk.act},tk.sig);
+    return ok?{ok:true}:{ok:false,reason:'bad signature'};
+  }
+  revoke(tokenId){var r=this.tokens[tokenId];if(r){r.revoked=true;this.os.audit.log('system','token.revoked',{token:tokenId});return true;}return false;}
+  exchange(tk,newSubject,audience){ /* RFC 8693-style: act chain grows */
+    var v=this.verifyToken(tk,null); if(!v.ok)return {ok:false,reason:v.reason};
+    var nt=this.issueToken(newSubject,audience,15,(tk.act||[]).concat([tk.sub]));
+    return {ok:true,token:nt};
+  }
+}
+
+/* ================= engine: registry & discovery ================= */
+class Registry{
+  constructor(os){this.os=os;this.cards={};this.rv=0;}
+  register(card){
+    card.resourceVersion=(++this.rv);
+    this.cards[card.did]=card;
+    this.os.audit.log(card.did,'registry.registered',{name:card.name,capabilities:card.capabilities});
+    return card;
+  }
+  all(){return Object.values(this.cards);}
+  search(q){
+    var terms=q.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+    if(!terms.length)return this.all().map(c=>({card:c,score:0}));
+    var out=this.all().map(c=>{
+      var hay=(c.name+' '+c.description+' '+c.capabilities.join(' ')).toLowerCase();
+      var score=0;
+      terms.forEach(t=>{
+        if(c.capabilities.some(cp=>cp.toLowerCase()===t))score+=3;
+        if(hay.indexOf(t)>=0)score+=1;
+      });
+      return {card:c,score:score};
+    }).filter(r=>r.score>0);
+    out.sort((a,b)=>b.score-a.score||a.card.name.localeCompare(b.card.name));
+    return out;
+  }
+}
+function makeAgentCard(id,desc,caps,priceHint){
+  return {'@context':'https://proto.dev/agentcard/v1',did:id.did,name:id.name,kind:id.kind,
+    description:desc||'',capabilities:caps||[],price_hint:priceHint||0,fpr:id.fpr,registered:nowIso()};
+}
+
+/* ================= engine: policy ================= */
+var LAYERS=['platform','legal','org','user'];
+class PolicyEngine{
+  constructor(os){this.os=os;this.rules=[];this.decisions=[];}
+  addRule(layer,actionPattern,cond,effect,label){
+    var r={id:newId('rule'),layer:layer,action:actionPattern,cond:cond||'true',effect:effect,label:label||''};
+    this.rules.push(r);
+    this.os.audit.log('policy','rule.added',{rule:r.id,layer:layer,action:actionPattern,cond:r.cond,effect:effect});
+    return r;
+  }
+  removeRule(id){
+    var i=this.rules.findIndex(r=>r.id===id);
+    if(i>=0){var r=this.rules.splice(i,1)[0];this.os.audit.log('policy','rule.removed',{rule:r.id,label:r.label});return true;}
+    return false;
+  }
+  evaluate(action,ctx,sensitive){
+    var fired=[],errs=[];
+    this.rules.forEach(r=>{
+      if(!matchAction(r.action,action))return;
+      var hit=false;
+      try{hit=evalCond(r.cond,ctx);}catch(e){errs.push(r.id+': '+e.message);return;}
+      if(hit)fired.push(r);
+    });
+    var effect,by=null;
+    var deny=fired.find(r=>r.effect==='deny');
+    var appr=fired.find(r=>r.effect==='require_approval');
+    var allow=fired.find(r=>r.effect==='allow');
+    if(deny){effect='deny';by=deny;}
+    else if(appr){effect='require_approval';by=appr;}
+    else if(allow){effect='allow';by=allow;}
+    else {effect=sensitive?'deny':'allow';by=null;}
+    var d={id:newId('dec'),ts:nowIso(),action:action,ctx:ctx,effect:effect,
+      rule:by?by.id:null,rule_label:by?(by.label||by.cond):'(default: '+(sensitive?'deny — sensitive':'allow')+')',
+      layer:by?by.layer:'default',errors:errs};
+    this.decisions.unshift(d); if(this.decisions.length>200)this.decisions.pop();
+    this.os.audit.log('policy','decision',{action:action,effect:effect,rule:d.rule,amount:ctx.amount!==undefined?ctx.amount:null});
+    return d;
+  }
+}
+
+/* ================= engine: AP2 mandates ================= */
+class MandateStore{
+  constructor(os){this.os=os;this.byId={};}
+  intent(user,desc,maxAmount,currency,category,ttlMin){
+    var m={id:newId('int'),type:'IntentMandate',user:user.did,description:desc,max_amount:maxAmount,
+      currency:currency,category:category,expires:new Date(Date.now()+(ttlMin||10)*60000).toISOString()};
+    m.sig=user.sign({id:m.id,user:m.user,description:m.description,max_amount:m.max_amount,currency:m.currency,category:m.category,expires:m.expires});
+    this.byId[m.id]=m;this.os.audit.log(user.did,'mandate.intent',{id:m.id,max:maxAmount,category:category});
+    return m;
+  }
+  cart(merchant,intentId,items,currency){
+    var total=items.reduce((s,it)=>s+it.price*it.qty,0);
+    var m={id:newId('cart'),type:'CartMandate',merchant:merchant.did,intent:intentId,items:items,
+      total:Math.round(total*100)/100,currency:currency};
+    m.sig=merchant.sign({id:m.id,merchant:m.merchant,intent:m.intent,items:m.items,total:m.total,currency:m.currency});
+    this.byId[m.id]=m;this.os.audit.log(merchant.did,'mandate.cart',{id:m.id,intent:intentId,total:m.total});
+    return m;
+  }
+  payment(user,cartId,amount,currency,rail){
+    var m={id:newId('pay'),type:'PaymentMandate',user:user.did,cart:cartId,amount:amount,currency:currency,rail:rail};
+    m.sig=user.sign({id:m.id,user:m.user,cart:m.cart,amount:m.amount,currency:m.currency,rail:m.rail});
+    this.byId[m.id]=m;this.os.audit.log(user.did,'mandate.payment',{id:m.id,cart:cartId,amount:amount,rail:rail});
+    return m;
+  }
+  verifyChain(intent,cart,payment,ids){
+    var steps=[];
+    function step(name,ok,note){steps.push({name:name,ok:ok,note:note||''});return ok;}
+    var u=ids.get(intent.user),mch=ids.get(cart.merchant);
+    var a=step('Intent signature',u?Identity.verify(u,{id:intent.id,user:intent.user,description:intent.description,max_amount:intent.max_amount,currency:intent.currency,category:intent.category,expires:intent.expires},intent.sig):false);
+    var b=step('Intent not expired',new Date(intent.expires)>=new Date());
+    var c=step('Cart signature',mch?Identity.verify(mch,{id:cart.id,merchant:cart.merchant,intent:cart.intent,items:cart.items,total:cart.total,currency:cart.currency},cart.sig):false);
+    var d=step('Cart links intent',cart.intent===intent.id);
+    var recomputed=Math.round(cart.items.reduce((s,it)=>s+it.price*it.qty,0)*100)/100;
+    var e=step('Cart total = items sum',Math.abs(recomputed-cart.total)<0.005,money(recomputed)+' vs '+money(cart.total));
+    var f=step('Total ≤ intent max',cart.total<=intent.max_amount+1e-9,money(cart.total)+' ≤ '+money(intent.max_amount));
+    var g=step('Currency match',intent.currency===cart.currency&&cart.currency===payment.currency);
+    var h=step('Payment signature',u?Identity.verify(u,{id:payment.id,user:payment.user,cart:payment.cart,amount:payment.amount,currency:payment.currency,rail:payment.rail},payment.sig):false);
+    var i2=step('Payment links cart',payment.cart===cart.id);
+    var j=step('Payment amount = cart total',Math.abs(payment.amount-cart.total)<0.005);
+    var ok=a&&b&&c&&d&&e&&f&&g&&h&&i2&&j;
+    this.os.audit.log('mandates','chain.verify',{intent:intent.id,cart:cart.id,payment:payment.id,ok:ok});
+    return {ok:ok,steps:steps};
+  }
+}
+
+/* ================= engine: budgets & rails ================= */
+class Budgets{
+  constructor(os){this.os=os;this.byId={};this.txs=[];}
+  create(id,name,limit,parent,ownerDid,denyCats){
+    var b={id:id||newId('bud'),name:name,limit:limit,parent:parent||null,owner:ownerDid||null,deny_categories:denyCats||[]};
+    this.byId[b.id]=b;this.os.audit.log('wallet','budget.created',{id:b.id,name:name,limit:limit,parent:b.parent});
+    return b;
+  }
+  ancestors(id){var out=[],b=this.byId[id];while(b){out.push(b);b=b.parent?this.byId[b.parent]:null;}return out;}
+  isDescendant(id,of){return this.ancestors(id).some(b=>b.id===of);}
+  spent(id){ /* roll-up: spend on a budget counts toward itself + ancestors */
+    var self=this;
+    return this.txs.reduce((s,t)=>s+(self.isDescendant(t.budget,id)?t.amount:0),0);
+  }
+  remaining(id){var b=this.byId[id];return b?b.limit-this.spent(id):0;}
+  check(id,amount,category){
+    var chain=this.ancestors(id);
+    if(!chain.length)return {ok:false,reason:'unknown budget'};
+    for(var i=0;i<chain.length;i++){
+      var b=chain[i];
+      if(category&&b.deny_categories.indexOf(category)>=0)return {ok:false,reason:'category "'+category+'" blocked by budget '+b.name};
+      if(this.spent(b.id)+amount>b.limit+1e-9)return {ok:false,reason:'exceeds '+b.name+' (remaining '+money(this.remaining(b.id))+')'};
+    }
+    return {ok:true};
+  }
+  charge(id,amount,category,memo){
+    var c=this.check(id,amount,category); if(!c.ok)throw {kind:'BudgetExceeded',message:c.reason};
+    var tx={id:newId('tx'),ts:nowIso(),budget:id,amount:amount,category:category||null,memo:memo||''};
+    this.txs.push(tx);this.os.audit.log('wallet','budget.charge',{budget:id,amount:amount,memo:memo||''});
+    return tx;
+  }
+  refund(id,amount,memo){
+    var tx={id:newId('tx'),ts:nowIso(),budget:id,amount:-amount,category:null,memo:memo||'refund'};
+    this.txs.push(tx);this.os.audit.log('wallet','budget.refund',{budget:id,amount:amount});
+    return tx;
+  }
+}
+class X402Rail{
+  constructor(os){this.os=os;this.challenges={};this.usedNonces={};this.receipts={};}
+  challenge(payee,amount,currency,resource){
+    var ch={id:newId('x402'),payee:payee,amount:amount,currency:currency,resource:resource,nonce:newId('n'),expires:new Date(Date.now()+5*60000).toISOString()};
+    this.challenges[ch.id]=ch;return ch;
+  }
+  buildPayment(payer,ch){
+    var p={challenge:ch.id,nonce:ch.nonce,amount:ch.amount,currency:ch.currency,payer:payer.did};
+    p.sig=payer.sign({challenge:p.challenge,nonce:p.nonce,amount:p.amount,currency:p.currency,payer:p.payer});
+    return p;
+  }
+  settle(p,ids){
+    var ch=this.challenges[p.challenge]; if(!ch)return {ok:false,reason:'unknown challenge'};
+    if(this.usedNonces[p.nonce])return {ok:false,reason:'nonce replay'};
+    if(new Date(ch.expires)<new Date())return {ok:false,reason:'challenge expired'};
+    if(Math.abs(p.amount-ch.amount)>1e-9)return {ok:false,reason:'amount mismatch'};
+    var payer=ids.get(p.payer);
+    if(!payer||!Identity.verify(payer,{challenge:p.challenge,nonce:p.nonce,amount:p.amount,currency:p.currency,payer:p.payer},p.sig))
+      return {ok:false,reason:'bad signature'};
+    this.usedNonces[p.nonce]=true;
+    var r={id:newId('rcpt'),rail:'x402',ts:nowIso(),payer:p.payer,payee:ch.payee,amount:p.amount,currency:p.currency,resource:ch.resource};
+    this.receipts[r.id]=r;
+    this.os.audit.log(p.payer,'x402.settled',{receipt:r.id,amount:p.amount,payee:ch.payee});
+    return {ok:true,receipt:r};
+  }
+  verifyReceipt(id){return this.receipts[id]||null;}
+}
+class MPPRail{
+  constructor(os){this.os=os;this.sessions={};this.receipts={};}
+  open(payer,payee,deposit,currency){
+    var s={id:newId('mpp'),payer:payer,payee:payee,deposit:deposit,balance:deposit,currency:currency,open:true,opened:nowIso()};
+    this.sessions[s.id]=s;this.os.audit.log(payer,'mpp.opened',{session:s.id,deposit:deposit,payee:payee});
+    return s;
+  }
+  charge(sessionId,amount,resource){
+    var s=this.sessions[sessionId];
+    if(!s||!s.open)return {ok:false,reason:'no open session'};
+    if(s.balance<amount-1e-9)return {ok:false,reason:'session balance too low'};
+    s.balance=Math.round((s.balance-amount)*100)/100;
+    var r={id:newId('rcpt'),rail:'mpp',ts:nowIso(),payer:s.payer,payee:s.payee,amount:amount,currency:s.currency,resource:resource,session:s.id};
+    this.receipts[r.id]=r;this.os.audit.log(s.payer,'mpp.charged',{session:s.id,amount:amount,balance:s.balance});
+    return {ok:true,receipt:r};
+  }
+  close(sessionId){
+    var s=this.sessions[sessionId]; if(!s||!s.open)return {ok:false,reason:'no open session'};
+    s.open=false;var refund=s.balance;s.balance=0;
+    this.os.audit.log(s.payer,'mpp.closed',{session:s.id,refund:refund});
+    return {ok:true,refund:refund};
+  }
+  verifyReceipt(id){return this.receipts[id]||null;}
+}
+class TraditionalRail{
+  constructor(os){this.os=os;this.receipts={};}
+  settle(payer,payee,amount,currency,memo){
+    var r={id:newId('rcpt'),rail:'card',ts:nowIso(),payer:payer,payee:payee,amount:amount,currency:currency,resource:memo,status:'settled'};
+    this.receipts[r.id]=r;this.os.audit.log(payer,'card.settled',{receipt:r.id,amount:amount,payee:payee});
+    return {ok:true,receipt:r};
+  }
+  verifyReceipt(id){return this.receipts[id]||null;}
+}
+class SpendingController{
+  constructor(os){this.os=os;this.ledger=[];}
+  record(receipt,budgetTx,note){
+    var row={ts:receipt.ts,receipt:receipt.id,rail:receipt.rail,payer:receipt.payer,payee:receipt.payee,
+      amount:receipt.amount,currency:receipt.currency,memo:receipt.resource||note||'',tx:budgetTx?budgetTx.id:null};
+    this.ledger.unshift(row);return row;
+  }
+  recordRefund(payer,amount,memo){
+    this.ledger.unshift({ts:nowIso(),receipt:'—',rail:'mpp',payer:payer,payee:'—',amount:-amount,currency:'USD',memo:memo,tx:null});
+  }
+  spent24h(payerDid){
+    var cut=Date.now()-24*3600e3;
+    return this.ledger.reduce((s,r)=>s+((r.payer===payerDid&&new Date(r.ts).getTime()>=cut&&r.amount>0)?r.amount:0),0);
+  }
+}
+
+/* ================= engine: MCP ================= */
+class MCPServer{
+  constructor(os,name){this.os=os;this.name=name;this.tools={};}
+  addTool(name,desc,argsSpec,fn,price){
+    this.tools[name]={name:name,description:desc,args:argsSpec,fn:fn,price:price||0,calls:0};
+  }
+  list(){return Object.values(this.tools).map(t=>({name:t.name,description:t.description,args:t.args,price:t.price}));}
+  call(name,args,paymentReceiptId){
+    var t=this.tools[name];
+    if(!t)return {jsonrpc:'2.0',error:{code:-32601,message:'tool not found: '+name}};
+    if(t.price>0){
+      var ok=false;
+      if(paymentReceiptId){
+        var r=this.os.x402.verifyReceipt(paymentReceiptId)||this.os.mpp.verifyReceipt(paymentReceiptId);
+        if(r&&r.payee===this.name&&Math.abs(r.amount-t.price)<1e-9)ok=true;
+      }
+      if(!ok){
+        var ch=this.os.x402.challenge(this.name,t.price,'USD','tool:'+name);
+        return {jsonrpc:'2.0',error:{code:402,message:'Payment required',data:ch}};
+      }
+    }
+    t.calls++;
+    try{
+      var out=t.fn(args||{});
+      this.os.audit.log(this.name,'mcp.tool_call',{tool:name,paid:t.price>0});
+      return {jsonrpc:'2.0',result:{content:[{type:'text',text:out}]}};
+    }catch(e){
+      return {jsonrpc:'2.0',error:{code:-32000,message:String(e&&e.message||e)}};
+    }
+  }
+}
+
+/* ================= engine: A2A tasks ================= */
+class A2AHub{
+  constructor(os){this.os=os;this.tasks=[];}
+  submit(agentDid,text){
+    var t={id:newId('task'),agent:agentDid,text:text,status:'submitted',created:nowIso(),
+      artifacts:[],question:null,history:[['submitted',nowIso()]]};
+    this.tasks.unshift(t);
+    this.os.audit.log(agentDid,'a2a.submitted',{task:t.id,text:text.slice(0,80)});
+    this.os.agui.emit('run_'+t.id,'RUN_STARTED',{task:t.id,agent:agentDid});
+    var self=this;
+    setTimeout(function(){self._advance(t.id,'working');},500);
+    setTimeout(function(){self._work(t.id);},1400);
+    return t;
+  }
+  _get(id){return this.tasks.find(t=>t.id===id);}
+  _advance(id,st,extra){
+    var t=this._get(id); if(!t||['completed','failed','canceled'].indexOf(t.status)>=0)return;
+    t.status=st;t.history.push([st,nowIso()]);
+    this.os.audit.log(t.agent,'a2a.status',{task:id,status:st});
+    this.os.agui.emit('run_'+id,'STATE_DELTA',{task:id,status:st,extra:extra||null});
+    this.os.changed();
+  }
+  _work(id){
+    var t=this._get(id); if(!t||t.status!=='working')return;
+    if(/buy|purchase|order|pay/i.test(t.text)){
+      t.question='This task involves spending. Confirm the agent may use its budget slice?';
+      this._advance(id,'input-required');
+      this.os.agui.emit('run_'+id,'HUMAN_INPUT_REQUIRED',{task:id,question:t.question});
+    }else{
+      this._finish(id,'Result: '+t.text.split('').reverse().join('').slice(0,60)+' … analysis of "'+t.text.slice(0,40)+'" complete ('+t.text.length+' chars processed).');
+    }
+  }
+  provideInput(id,answer){
+    var t=this._get(id); if(!t||t.status!=='input-required')return {ok:false,reason:'task not waiting'};
+    this.os.agui.emit('run_'+id,'HUMAN_INPUT_PROVIDED',{task:id,answer:answer});
+    this.os.audit.log('user','a2a.input',{task:id,answer:answer});
+    if(/^y/i.test(answer)){
+      this._advance(id,'working');
+      var self=this;
+      setTimeout(function(){self._finish(id,'Budget confirmed by human. Plan drafted; hand off to purchase flow in Shop when ready.');},900);
+    }else{
+      var tt=this._get(id);tt.status='canceled';tt.history.push(['canceled',nowIso()]);
+      this.os.agui.emit('run_'+id,'RUN_FINISHED',{task:id,status:'canceled'});
+      this.os.audit.log(t.agent,'a2a.canceled',{task:id});
+      this.os.changed();
+    }
+    return {ok:true};
+  }
+  _finish(id,artifact){
+    var t=this._get(id); if(!t)return;
+    t.artifacts.push(artifact);t.status='completed';t.history.push(['completed',nowIso()]);
+    this.os.agui.emit('run_'+id,'TEXT_MESSAGE_CONTENT',{task:id,text:artifact});
+    this.os.agui.emit('run_'+id,'RUN_FINISHED',{task:id,status:'completed'});
+    this.os.audit.log(t.agent,'a2a.completed',{task:id});
+    this.os.changed();
+  }
+  cancel(id){
+    var t=this._get(id); if(!t||['completed','failed','canceled'].indexOf(t.status)>=0)return {ok:false,reason:'already terminal'};
+    t.status='canceled';t.history.push(['canceled',nowIso()]);
+    this.os.agui.emit('run_'+id,'RUN_FINISHED',{task:id,status:'canceled'});
+    this.os.audit.log(t.agent,'a2a.canceled',{task:id});
+    this.os.changed();
+    return {ok:true};
+  }
+}
+
+/* ================= engine: AG-UI bus, rate limit, kill switch ================= */
+class AGUIBus{
+  constructor(os){this.os=os;this.events=[];}
+  emit(run,type,data){
+    var e={id:newId('evt'),ts:nowIso(),run:run,type:type,data:data||{}};
+    this.events.unshift(e); if(this.events.length>400)this.events.pop();
+    if(this.os&&this.os.changed)this.os.changed();
+    return e;
+  }
+}
+class RateLimiter{
+  constructor(cap,refillMs){this.cap=cap;this.refillMs=refillMs;this.buckets={};}
+  take(key){
+    var now=Date.now(),b=this.buckets[key];
+    if(!b){b={tokens:this.cap,last:now};this.buckets[key]=b;}
+    var add=Math.floor((now-b.last)/this.refillMs);
+    if(add>0){b.tokens=Math.min(this.cap,b.tokens+add);b.last=now;}
+    if(b.tokens<=0)return false;
+    b.tokens--;return true;
+  }
+  tokens(key){var b=this.buckets[key];return b?b.tokens:this.cap;}
+}
+
+/* ================= ProtoOS facade ================= */
+class ProtoOS{
+  constructor(){
+    this.audit=new AuditLog();
+    this.ids=new IdentityHub(this);
+    this.registry=new Registry(this);
+    this.policy=new PolicyEngine(this);
+    this.mandates=new MandateStore(this);
+    this.budgets=new Budgets(this);
+    this.x402=new X402Rail(this);
+    this.mpp=new MPPRail(this);
+    this.card=new TraditionalRail(this);
+    this.spend=new SpendingController(this);
+    this.a2a=new A2AHub(this);
+    this.agui=new AGUIBus(this);
+    this.rate=new RateLimiter(8,900);
+    this.halted=false;
+    this.approvals=[]; /* pending human-in-the-loop items */
+    this.payMode='x402'; /* or 'mpp' */
+    this.mppSession=null;
+    this._listeners=[];
+  }
+  onChange(fn){this._listeners.push(fn);}
+  changed(){this._listeners.forEach(fn=>{try{fn();}catch(e){}});}
+  gateHalt(){if(this.halted)throw {kind:'ProtoHalted',message:'Kill switch engaged — all agent actions are halted.'};}
+  setHalt(on,who){
+    this.halted=on;
+    this.audit.log(who||'user','killswitch.'+(on?'engaged':'released'),{});
+    this.agui.emit('run_system',on?'ERROR':'STATE_DELTA',{killswitch:on?'engaged':'released'});
+    this.changed();
+  }
+
+  /* ---- paid tool call with auto-pay (x402 or MPP) ---- */
+  callTool(agent,server,tool,args,opts){
+    opts=opts||{};
+    this.gateHalt();
+    if(!this.rate.take(agent.did))throw {kind:'RateLimited',message:'Rate limit: '+agent.name+' is out of tokens. Wait a moment.'};
+    var run=opts.run||('run_'+newId('r'));
+    this.agui.emit(run,'TOOL_CALL_START',{agent:agent.did,tool:tool,args:args});
+    var res=server.call(tool,args,null);
+    if(res.error&&res.error.code===402){
+      var ch=res.error.data;
+      var d=this.policy.evaluate('tool.pay',{amount:ch.amount,currency:ch.currency,action:'tool.pay',actor:agent.did,name:tool,hour:new Date().getHours(),spent_24h:this.spend.spent24h(agent.did)},false);
+      if(d.effect==='deny')throw {kind:'PolicyDenied',message:'Policy denied paying for '+tool+' — '+d.rule_label};
+      var budgetId=opts.budgetId;
+      var receipt=null,tx=null;
+      if(this.payMode==='mpp'){
+        if(!this.mppSession||!this.mppSession.open){
+          tx=this.budgets.charge(budgetId,1.00,'tools','MPP session deposit');
+          this._sessionBudget=budgetId;
+          this.mppSession=this.mpp.open(agent.did,server.name,1.00,'USD');
+          this.spend.record({id:this.mppSession.id,rail:'mpp',ts:nowIso(),payer:agent.did,payee:server.name,amount:1.00,currency:'USD',resource:'session deposit'},tx);
+        }
+        var cr=this.mpp.charge(this.mppSession.id,ch.amount,ch.resource);
+        if(!cr.ok)throw {kind:'ProtoError',message:'MPP: '+cr.reason};
+        receipt=cr.receipt;
+      }else{
+        tx=this.budgets.charge(budgetId,ch.amount,'tools','x402: '+tool);
+        var pay=this.x402.buildPayment(agent,ch);
+        var sr=this.x402.settle(pay,this.ids);
+        if(!sr.ok){this.budgets.refund(budgetId,ch.amount,'x402 failed');throw {kind:'ProtoError',message:'x402: '+sr.reason};}
+        receipt=sr.receipt;
+        this.spend.record(receipt,tx);
+      }
+      this.agui.emit(run,'STATE_DELTA',{paid:ch.amount,rail:this.payMode,receipt:receipt.id});
+      res=server.call(tool,args,receipt.id);
+    }
+    if(res.error)throw {kind:'ProtoError',message:res.error.message};
+    var text=res.result.content[0].text;
+    this.agui.emit(run,'TOOL_CALL_END',{tool:tool,ok:true});
+    this.agui.emit(run,'TEXT_MESSAGE_CONTENT',{text:text.slice(0,140)});
+    return {text:text,run:run};
+  }
+  closeMppSession(){
+    if(!this.mppSession||!this.mppSession.open)return {ok:false,reason:'no open session'};
+    var payer=this.mppSession.payer;
+    var r=this.mpp.close(this.mppSession.id);
+    if(r.ok&&r.refund>0){
+      /* refund unspent deposit back to the charged budget */
+      var b=this._sessionBudget||null;
+      if(b)this.budgets.refund(b,r.refund,'MPP session refund');
+      this.spend.recordRefund(payer,r.refund,'MPP session refund');
+    }
+    var s=this.mppSession;this.mppSession=null;this.changed();
+    return {ok:r.ok,refund:r.refund,session:s.id};
+  }
+
+  /* ---- AP2 purchase: intent → cart → payment → policy/budget → settle ---- */
+  purchase(user,agent,merchant,product,budgetId,opts){
+    opts=opts||{};
+    this.gateHalt();
+    var run='run_'+newId('r');
+    this.agui.emit(run,'RUN_STARTED',{flow:'purchase',product:product.name,agent:agent.did});
+    var intent=this.mandates.intent(user,'Buy '+product.name,opts.maxAmount!==undefined?opts.maxAmount:product.price,'USD',product.category,10);
+    var cart=this.mandates.cart(merchant,intent.id,[{sku:product.sku,name:product.name,price:product.price,qty:1}],'USD');
+    if(opts.tamper){cart.total=Math.round((cart.total+5)*100)/100;} /* demo: break the chain */
+    var payment=this.mandates.payment(user,cart.id,cart.total,'USD','card');
+    var chain=this.mandates.verifyChain(intent,cart,payment,this.ids);
+    if(!chain.ok){
+      this.agui.emit(run,'ERROR',{flow:'purchase',reason:'mandate chain invalid'});
+      return {ok:false,stage:'chain',chain:chain,run:run,reason:'Mandate chain failed verification.'};
+    }
+    var ctx={amount:cart.total,currency:'USD',category:product.category,action:'purchase.checkout',actor:agent.did,
+      hour:new Date().getHours(),spent_24h:this.spend.spent24h(user.did)};
+    var d=this.policy.evaluate('purchase.checkout',ctx,true);
+    if(d.effect==='deny'){
+      this.agui.emit(run,'ERROR',{flow:'purchase',reason:'policy deny: '+d.rule_label});
+      return {ok:false,stage:'policy',decision:d,chain:chain,run:run,reason:'Denied by '+d.layer+' policy — '+d.rule_label};
+    }
+    var bc=this.budgets.check(budgetId,cart.total,product.category);
+    if(!bc.ok){
+      this.agui.emit(run,'ERROR',{flow:'purchase',reason:'budget: '+bc.reason});
+      return {ok:false,stage:'budget',chain:chain,run:run,reason:'Budget check failed — '+bc.reason};
+    }
+    if(d.effect==='require_approval'){
+      var ap={id:newId('appr'),ts:nowIso(),kind:'purchase',run:run,user:user,agent:agent,merchant:merchant,
+        product:product,budgetId:budgetId,cart:cart,payment:payment,intent:intent,decision:d,status:'pending',resolver:null};
+      var self=this;
+      ap.promise=new Promise(function(res){ap.resolver=res;});
+      this.approvals.push(ap);
+      this.audit.log('policy','approval.requested',{approval:ap.id,amount:cart.total,product:product.name});
+      this.agui.emit(run,'HUMAN_INPUT_REQUIRED',{approval:ap.id,amount:cart.total,product:product.name,rule:d.rule_label});
+      this.changed();
+      return {ok:false,stage:'approval',approval:ap,chain:chain,run:run,
+        reason:'Approval required — '+d.rule_label};
+    }
+    return this._settlePurchase(run,user,agent,merchant,product,budgetId,cart,chain);
+  }
+  resolveApproval(id,approve,who){
+    var i=this.approvals.findIndex(a=>a.id===id); if(i<0)return {ok:false,reason:'not found'};
+    var ap=this.approvals[i];this.approvals.splice(i,1);
+    ap.status=approve?'approved':'denied';
+    this.audit.log(who||'user','approval.'+(approve?'granted':'denied'),{approval:ap.id,amount:ap.cart.total});
+    this.agui.emit(ap.run,'HUMAN_INPUT_PROVIDED',{approval:ap.id,answer:approve?'approve':'deny'});
+    var out;
+    if(approve){
+      try{this.gateHalt();
+        out=this._settlePurchase(ap.run,ap.user,ap.agent,ap.merchant,ap.product,ap.budgetId,ap.cart,null);
+      }catch(e){out={ok:false,reason:e.message||String(e)};this.agui.emit(ap.run,'ERROR',{reason:out.reason});}
+    }else{
+      out={ok:false,stage:'denied',reason:'Denied by human reviewer.'};
+      this.agui.emit(ap.run,'RUN_FINISHED',{status:'denied'});
+    }
+    if(ap.resolver)ap.resolver(out);
+    this.changed();
+    return out;
+  }
+  _settlePurchase(run,user,agent,merchant,product,budgetId,cart,chain){
+    var tx=this.budgets.charge(budgetId,cart.total,product.category,product.name);
+    var sr=this.card.settle(user.did,merchant.did,cart.total,'USD',product.name);
+    this.spend.record(sr.receipt,tx);
+    this.agui.emit(run,'STATE_DELTA',{settled:cart.total,receipt:sr.receipt.id});
+    this.agui.emit(run,'RUN_FINISHED',{status:'completed',receipt:sr.receipt.id});
+    this.audit.log(agent.did,'purchase.settled',{product:product.name,amount:cart.total,receipt:sr.receipt.id});
+    this.changed();
+    return {ok:true,stage:'settled',receipt:sr.receipt,chain:chain,run:run,amount:cart.total,
+      reason:'Settled '+money(cart.total)+' · receipt '+stub(sr.receipt.id,12)};
+  }
+}
+
+/* ================= seed world ================= */
+var OS, W={}; /* world refs for UI */
+function seedWorld(){
+  OS=new ProtoOS();
+  W={};
+  W.org=OS.ids.create('Fieldnotes Co-op','org');
+  W.ana=OS.ids.create('Ana (owner)','user');
+  W.merchant=OS.ids.create('Northwind Supply','merchant');
+  W.shopper=OS.ids.create('shopper-agent','agent');
+  W.research=OS.ids.create('research-agent','agent');
+
+  OS.registry.register(makeAgentCard(W.shopper,'Finds and buys goods under mandate. Handles carts, checkout, receipts.',['shopping','checkout','price-compare'],0));
+  OS.registry.register(makeAgentCard(W.research,'Summarizes sources and drafts briefs. Pays per call for premium summarize.',['research','summarize','search'],0.10));
+  OS.registry.register(makeAgentCard(W.merchant,'Merchant endpoint for Northwind Supply catalog (UCP).',['catalog','fulfillment'],0));
+
+  /* delegation VCs from Ana to her agents */
+  OS.ids.issueVC(W.ana,W.shopper,{role:'delegate',scope:'purchase.checkout',max_per_item:200},240);
+  OS.ids.issueVC(W.ana,W.research,{role:'delegate',scope:'tool.call'},240);
+
+  /* budgets: org → ana → agent slice */
+  W.bOrg=OS.budgets.create('bud_org','Co-op monthly',500,null,W.org.did,['surveillance']);
+  W.bAna=OS.budgets.create('bud_ana','Ana',150,'bud_org',W.ana.did,[]);
+  W.bShopper=OS.budgets.create('bud_shopper','shopper-agent slice',60,'bud_ana',W.shopper.did,[]);
+  W.bResearch=OS.budgets.create('bud_research','research-agent slice',5,'bud_ana',W.research.did,[]);
+  W.budByDid={}; W.budByDid[W.shopper.did]='bud_shopper'; W.budByDid[W.research.did]='bud_research';
+
+  /* policy lattice */
+  OS.policy.addRule('platform','purchase.*',"category == 'surveillance'",'deny','No surveillance-category purchases');
+  OS.policy.addRule('org','purchase.*','amount > 50','require_approval','Human approval over $50');
+  OS.policy.addRule('user','purchase.*','amount <= 50','allow','Auto-allow small purchases');
+  OS.policy.addRule('org','tool.pay','amount > 1','deny','Paid tools capped at $1/call');
+
+  /* MCP server + tools */
+  W.tools=new MCPServer(OS,'tools.proto.local');
+  W.tools.addTool('echo','Echo text back (free).',{text:'string'},function(a){return 'echo: '+(a.text||'');},0);
+  W.tools.addTool('web.search','Search the demo index (free).',{query:'string'},function(a){
+    var q=(a.query||'').toLowerCase();
+    var idx=[
+      ['Quiet-cancelling headphones roundup','Over-ear picks under $150; battery 30h+.'],
+      ['USB-C cable buying notes','Look for e-marked 100W cables; 2m sweet spot.'],
+      ['Field notebook comparisons','Dot-grid, 90gsm paper resists fountain ink.'],
+      ['Desk lamp color temperature guide','2700K warm to 5000K daylight; CRI ≥ 90.']
+    ];
+    var hits=idx.filter(r=>(r[0]+' '+r[1]).toLowerCase().split(/\W+/).some(w=>q.indexOf(w)>=0&&w.length>3));
+    if(!hits.length)hits=idx.slice(0,2);
+    return hits.map((h,i)=>(i+1)+'. '+h[0]+' — '+h[1]).join('\n');
+  },0);
+  W.tools.addTool('premium.summarize','Summarize text (paid — $0.10 per call via x402/MPP).',{text:'string'},function(a){
+    var t=(a.text||'').trim();
+    var words=t.split(/\s+/).filter(Boolean);
+    return 'SUMMARY ('+words.length+' words in): '+words.slice(0,18).join(' ')+(words.length>18?' …':'')+' — key point extracted.';
+  },0.10);
+
+  /* catalog */
+  W.catalog=[
+    {sku:'NW-CBL',name:'USB-C cable 2m',price:18,category:'electronics',ic:'🔌'},
+    {sku:'NW-HDP',name:'Quiet headphones',price:129,category:'electronics',ic:'🎧'},
+    {sku:'NW-PEN',name:'Fine-nib pen',price:4,category:'stationery',ic:'🖊️'},
+    {sku:'NW-NBK',name:'Field notebook',price:9,category:'stationery',ic:'📓'},
+    {sku:'NW-CAM',name:'Mini tracker cam',price:59,category:'surveillance',ic:'📷'},
+    {sku:'NW-LMP',name:'Desk lamp',price:42,category:'home',ic:'💡'}
+  ];
+
+  OS.audit.log('system','os.booted',{version:'0.2.0-web',agents:2,tools:3});
+  OS.agui.emit('run_system','RUN_STARTED',{system:'PROTO web console',version:'0.1.0-web'});
+}
+
+/* ================= UI layer ================= */
+var UIS={tab:'overview',evFilter:'all',auditBad:null,tamperBackup:null,demoRunning:false,demoLog:[],keep:{}};
+var $=function(s,r){return (r||document).querySelector(s);};
+function toast(msg,type){
+  var t=document.createElement('div');t.className='toast '+(type||'');t.textContent=msg;
+  $('#toasts').appendChild(t);setTimeout(function(){t.remove();},3400);
+}
+function nameOf(did){var i=OS.ids.get(did);return i?i.name:stub(did,14);}
+function budName(id){var b=OS.budgets.byId[id];return b?b.name:id;}
+function agentList(){return Object.values(OS.ids.byDid).filter(i=>i.kind==='agent');}
+function activeAgent(){return OS.ids.get(UIS.keep.agentDid)||W.research;}
+function budgetOf(did){return W.budByDid[did]||W.bAna.id;}
+
+/* keep form values across re-renders */
+function saveKeep(root){
+  (root||document).querySelectorAll('[data-keep]').forEach(function(el){
+    UIS.keep[el.getAttribute('data-keep')]=(el.type==='checkbox')?el.checked:el.value;
+  });
+}
+function restoreKeep(root){
+  (root||document).querySelectorAll('[data-keep]').forEach(function(el){
+    var k=el.getAttribute('data-keep');
+    if(UIS.keep[k]!==undefined){if(el.type==='checkbox')el.checked=UIS.keep[k];else el.value=UIS.keep[k];}
+  });
+}
+
+/* sheet modal */
+function openSheet(html){$('#sheet').innerHTML=html;$('#sheetwrap').classList.add('open');}
+function closeSheet(){$('#sheetwrap').classList.remove('open');$('#sheet').innerHTML='';}
+
+var TABS=[
+  {id:'overview',label:'Overview'},{id:'graph',label:'Constellation'},{id:'events',label:'Events'},{id:'agents',label:'Identity'},
+  {id:'discover',label:'Discover'},{id:'tools',label:'Tools'},{id:'tasks',label:'Tasks'},
+  {id:'shop',label:'Shop'},{id:'wallet',label:'Wallet'},{id:'policy',label:'Policy'},{id:'audit',label:'Audit'}
+];
+
+/* ---------- renderers ---------- */
+function rOverview(){
+  var spentToday=OS.spend.ledger.reduce((s,r)=>s+(r.amount>0?r.amount:0),0);
+  var rcpts=OS.spend.ledger.filter(r=>r.amount>0).length;
+  var ap=OS.approvals;
+  var h='';
+  h+='<div class="card"><h3>System status</h3>'
+    +'<div class="kv"><span>Control plane</span><b>'+(OS.halted?'<span class="stamped no">Halted</span>':'<span class="stamped ok">Running</span>')+'</b></div>'
+    +'<div class="kv"><span>Registered agents</span><b class="mono">'+agentList().length+'</b></div>'
+    +'<div class="kv"><span>Audit entries (hash-chained)</span><b class="mono">'+OS.audit.entries.length+'</b></div>'
+    +'<div class="kv"><span>Receipts settled</span><b class="mono">'+rcpts+'</b></div>'
+    +'<div class="kv"><span>Spent this session</span><b class="amount">'+money(spentToday)+'</b></div>'
+    +'</div>';
+  h+='<h2 class="h2" id="apprAnchor">Approvals — awaiting your stamp</h2>';
+  if(!ap.length)h+='<div class="card small">Nothing waiting. Purchases over $50 will park here for a human decision.</div>';
+  ap.forEach(function(a){
+    h+='<div class="slip" id="slip_'+a.id+'">'
+      +'<div class="rowline spread"><b>'+esc(a.product.name)+'</b><span class="amount">'+money(a.cart.total)+'</span></div>'
+      +'<div class="small">Requested by '+esc(nameOf(a.agent.did))+' · charge to '+esc(budName(a.budgetId))+'</div>'
+      +'<div class="small">Rule: '+esc(a.decision.rule_label)+'</div>'
+      +'<div class="btnrow">'
+      +'<button class="stampbtn ok" data-act="approve" data-id="'+a.id+'">Approve</button>'
+      +'<button class="stampbtn no" data-act="denyap" data-id="'+a.id+'">Deny</button>'
+      +'</div></div>';
+  });
+  h+='<h2 class="h2">Guided demo</h2><div class="card">'
+    +'<div class="small">Runs the whole system end to end: discovery → delegated budgets → a free and a paid tool call (auto-paid over x402) → a small auto-approved purchase → a large purchase that waits for your stamp → a policy-blocked item → ledger verification.</div>'
+    +'<div class="btnrow"><button class="btn primary" data-act="demo" '+(UIS.demoRunning?'disabled':'')+'>'+(UIS.demoRunning?'Demo running…':'Run guided demo')+'</button></div>'
+    +(UIS.demoLog.length?'<hr class="rulehr"><div class="codebox">'+UIS.demoLog.map(l=>'<span class="small mono">'+l[0]+'</span>  '+esc(l[1])).join('\n')+'</div>':'')
+    +'</div>';
+  h+='<h2 class="h2">Housekeeping</h2><div class="card"><div class="btnrow">'
+    +'<button class="btn sm" data-act="export">Export audit (.jsonl)</button>'
+    +'<button class="btn sm" data-act="gVault">Export Obsidian vault</button>'
+    +'<button class="btn sm ghost" data-act="reset">Reset world</button></div>'
+    +'<div class="small" style="margin-top:8px">Self-contained web build of the ProtoOS reference implementation. Signatures use a deterministic hash-MAC demo backend; payment rails and transports are simulated in-page. Same subsystem contracts as the Python build: layered policy, AP2 mandate chains, x402/MPP, MCP, A2A, AG-UI, hash-chained audit. The Constellation tab draws the live object graph; the vault export writes the same world as linked Obsidian notes.</div></div>';
+  return h;
+}
+
+function evClass(t){
+  if(/^RUN_/.test(t))return 'run';
+  if(/^TOOL_/.test(t))return 'tool';
+  if(t==='TEXT_MESSAGE_CONTENT')return 'text';
+  if(t==='STATE_DELTA')return 'state';
+  if(/^HUMAN_/.test(t))return 'human';
+  return 'error';
+}
+function rEvents(){
+  var f=UIS.evFilter;
+  var evs=OS.agui.events.filter(function(e){
+    if(f==='human')return /^HUMAN_/.test(e.type);
+    if(f==='error')return e.type==='ERROR';
+    return true;
+  });
+  var h='<div class="rowline" style="margin-bottom:10px">'
+    +['all','human','error'].map(x=>'<button class="chipbtn" aria-pressed="'+(f===x)+'" data-act="evf" data-v="'+x+'">'+x[0].toUpperCase()+x.slice(1)+'</button>').join('')
+    +'</div>';
+  h+='<div class="ledger-tape">';
+  if(!evs.length)h+='<div class="tape-empty">No events yet. AG-UI events from every run stream here.</div>';
+  evs.slice(0,80).forEach(function(e){
+    h+='<div class="evt '+evClass(e.type)+'"><span class="t">'+tShort(e.ts)+'<br>'+stub(e.run,9)+'</span>'
+      +'<span><span class="tag">'+esc(e.type)+'</span>'+esc(JSON.stringify(e.data)).slice(0,160)+'</span></div>';
+  });
+  h+='</div>';
+  return h;
+}
+
+function rAgents(){
+  var h='';
+  Object.values(OS.ids.byDid).forEach(function(id){
+    h+='<div class="card"><div class="rowline spread"><h3>'+esc(id.name)+'</h3><span class="chip plain">'+id.kind+'</span></div>'
+      +'<div class="small mono">'+id.did+'</div>'
+      +'<div class="small">key fpr <span class="mono">'+id.fpr+'</span></div>';
+    if(id.vcs.length){
+      h+='<div style="margin-top:6px">'+id.vcs.map(function(vc){
+        var v=OS.ids.verifyVC(vc);
+        return '<span class="chip '+(v.ok?'seal-c':'stamp-c')+'">VC '+esc(vc.claims.role||'cred')+(vc.claims.scope?(' · '+esc(vc.claims.scope)):'')+(v.ok?'':' · '+v.reason)+'</span>';
+      }).join('')+'</div>';
+    }
+    h+='</div>';
+  });
+  h+='<h2 class="h2">Session tokens</h2><div class="card">'
+    +'<div class="grid2"><div class="field"><label>Subject</label><select data-keep="tokSub">'
+    +Object.values(OS.ids.byDid).map(i=>'<option value="'+i.did+'">'+esc(i.name)+'</option>').join('')
+    +'</select></div><div class="field"><label>Audience</label><select data-keep="tokAud"><option>tools.proto.local</option><option>registry.proto.local</option></select></div></div>'
+    +'<div class="btnrow"><button class="btn sm" data-act="tokIssue">Issue token</button></div>';
+  var toks=Object.values(OS.ids.tokens);
+  if(toks.length){
+    h+='<hr class="rulehr">';
+    toks.slice(-6).reverse().forEach(function(rec){
+      var tk=rec.tk,v=OS.ids.verifyToken(tk,null);
+      h+='<div class="kv"><span class="mono">'+stub(tk.id,12)+' → '+esc(tk.aud)+(tk.act.length?(' <span class="chip plain">act:'+tk.act.map(a=>esc(nameOf(a))).join('→')+'</span>'):'')+'</span>'
+        +'<span>'+(rec.revoked?'<span class="chip stamp-c">revoked</span>':(v.ok?'<span class="chip seal-c">valid</span>':'<span class="chip stamp-c">'+v.reason+'</span>'))
+        +' <button class="btn sm ghost" data-act="tokRevoke" data-id="'+tk.id+'">Revoke</button>'
+        +' <button class="btn sm ghost" data-act="tokExch" data-id="'+tk.id+'">Exchange→shopper</button></span></div>';
+    });
+  }
+  h+='</div>';
+  h+='<h2 class="h2">Create agent</h2><div class="card">'
+    +'<div class="field"><label>Name</label><input data-keep="agName" placeholder="triage-agent"></div>'
+    +'<div class="grid2"><div class="field"><label>Skills (comma-separated)</label><input data-keep="agSkills" placeholder="triage, email"></div>'
+    +'<div class="field"><label>Budget slice from Ana ($)</label><input data-keep="agSlice" inputmode="decimal" placeholder="10"></div></div>'
+    +'<div class="btnrow"><button class="btn primary sm" data-act="agCreate">Create + register + delegate</button></div>'
+    +'<div class="small">Creates a DID and keypair, issues a delegation VC from Ana, carves a child budget, and publishes an agent card to the registry.</div></div>';
+  return h;
+}
+
+function rDiscover(){
+  var q=UIS.keep.discQ||'';
+  var res=q?OS.registry.search(q):OS.registry.all().map(c=>({card:c,score:null}));
+  var h='<div class="card"><div class="field"><label>Search the federated registry</label>'
+    +'<input data-keep="discQ" data-act-input="disc" placeholder="shopping, research, summarize…" value="'+esc(q)+'"></div></div>';
+  if(!res.length)h+='<div class="card small">No cards match “'+esc(q)+'”. Try a capability word like <span class="mono">shopping</span>.</div>';
+  res.forEach(function(r){
+    var c=r.card;
+    h+='<div class="card"><div class="rowline spread"><h3>'+esc(c.name)+'</h3>'
+      +(r.score!==null?'<span class="chip seal-c">score '+r.score+'</span>':'<span class="chip plain">'+c.kind+'</span>')+'</div>'
+      +'<div class="small">'+esc(c.description)+'</div>'
+      +'<div style="margin-top:6px">'+c.capabilities.map(cp=>'<span class="chip">'+esc(cp)+'</span>').join('')
+      +(c.price_hint?'<span class="chip manila-c">~'+money(c.price_hint)+'/call</span>':'')+'</div>'
+      +'<div class="small mono" style="margin-top:6px">'+c.did+' · rv'+c.resourceVersion+'</div>'
+      +(c.kind==='agent'?'<div class="btnrow"><button class="btn sm" data-act="useAgent" data-id="'+c.did+'">Use in Tools & Tasks</button></div>':'')
+      +'</div>';
+  });
+  return h;
+}
+
+function rTools(){
+  var ag=activeAgent();
+  var h='<div class="card"><div class="grid2">'
+    +'<div class="field"><label>Calling agent</label><select data-keep="agentDid" data-act-input="rerender">'
+    +agentList().map(a=>'<option value="'+a.did+'" '+(a.did===ag.did?'selected':'')+'>'+esc(a.name)+'</option>').join('')+'</select></div>'
+    +'<div class="field"><label>Payment mode for paid tools</label><div class="rowline">'
+    +'<button class="chipbtn" aria-pressed="'+(OS.payMode==='x402')+'" data-act="paymode" data-v="x402">x402 per-call</button>'
+    +'<button class="chipbtn" aria-pressed="'+(OS.payMode==='mpp')+'" data-act="paymode" data-v="mpp">MPP session</button>'
+    +'</div></div></div>'
+    +'<div class="small">Charges land on <b>'+esc(budName(budgetOf(ag.did)))+'</b> and roll up the budget tree. Rate tokens for '+esc(ag.name)+': <span class="mono">'+OS.rate.tokens(ag.did)+'/8</span></div>';
+  if(OS.mppSession&&OS.mppSession.open){
+    h+='<hr class="rulehr"><div class="rowline spread"><span>MPP session <span class="mono">'+stub(OS.mppSession.id,10)+'</span> · balance <b class="amount">'+money(OS.mppSession.balance)+'</b></span>'
+      +'<button class="btn sm" data-act="mppClose">Close & refund</button></div>';
+  }
+  h+='</div>';
+  W.tools.list().forEach(function(t){
+    h+='<div class="card"><div class="rowline spread"><h3 class="mono">'+esc(t.name)+'</h3>'
+      +(t.price>0?'<span class="chip manila-c">'+money(t.price)+'/call</span>':'<span class="chip seal-c">free</span>')+'</div>'
+      +'<div class="small">'+esc(t.description)+'</div>'
+      +'<div class="btnrow"><button class="btn sm primary" data-act="toolOpen" data-id="'+t.name+'">Call…</button></div></div>';
+  });
+  h+='<div class="card"><h3>Stress test</h3><div class="small">Fire 12 rapid <span class="mono">echo</span> calls to watch the token-bucket rate limiter push back.</div>'
+    +'<div class="btnrow"><button class="btn sm" data-act="stress">Run 12 calls</button></div></div>';
+  return h;
+}
+
+function rTasks(){
+  var ag=activeAgent();
+  var h='<div class="card"><div class="field"><label>New task for '+esc(ag.name)+' (A2A)</label>'
+    +'<textarea data-keep="taskText" placeholder="e.g. Compare field notebooks and buy the best one under $10"></textarea></div>'
+    +'<div class="btnrow"><button class="btn primary sm" data-act="taskNew">Submit task</button></div>'
+    +'<div class="small">Tasks that involve spending will pause at <span class="mono">input-required</span> and ask you first.</div></div>';
+  if(!OS.a2a.tasks.length)h+='<div class="card small">No tasks yet.</div>';
+  OS.a2a.tasks.forEach(function(t){
+    var st=t.status;
+    var chip=st==='completed'?'seal-c':(st==='canceled'||st==='failed'?'stamp-c':(st==='input-required'?'manila-c':'plain'));
+    h+='<div class="card"><div class="rowline spread"><b>'+esc(t.text.slice(0,60))+(t.text.length>60?'…':'')+'</b><span class="chip '+chip+'">'+st+'</span></div>'
+      +'<div class="small mono">'+t.id+' · '+esc(nameOf(t.agent))+'</div>';
+    if(st==='input-required'&&t.question){
+      h+='<div class="slip" style="margin-top:8px"><div class="small">'+esc(t.question)+'</div>'
+        +'<div class="btnrow"><button class="stampbtn ok" data-act="taskYes" data-id="'+t.id+'">Yes</button>'
+        +'<button class="stampbtn no" data-act="taskNo" data-id="'+t.id+'">No</button></div></div>';
+    }
+    t.artifacts.forEach(function(a){h+='<div class="codebox" style="margin-top:8px">'+esc(a)+'</div>';});
+    if(['completed','canceled','failed'].indexOf(st)<0){
+      h+='<div class="btnrow"><button class="btn sm ghost" data-act="taskCancel" data-id="'+t.id+'">Cancel</button></div>';
+    }
+    h+='<div class="small" style="margin-top:6px">'+t.history.map(x=>x[0]+' '+tShort(x[1])).join(' → ')+'</div></div>';
+  });
+  return h;
+}
+
+function rShop(){
+  var h='<div class="prodgrid">';
+  W.catalog.forEach(function(p){
+    h+='<div class="prod"><span class="ic">'+p.ic+'</span><span class="nm">'+esc(p.name)+'</span>'
+      +'<span class="small">'+esc(p.category)+'</span><span class="pr">'+money(p.price)+'</span>'
+      +'<button class="btn sm primary" data-act="buyOpen" data-id="'+p.sku+'">Buy</button></div>';
+  });
+  h+='</div>';
+  var recent=OS.spend.ledger.slice(0,5);
+  h+='<h2 class="h2">Recent receipts</h2><div class="ledger-tape">';
+  if(!recent.length)h+='<div class="tape-empty">No receipts yet. Buy something small — under $50 settles automatically.</div>';
+  recent.forEach(function(r){
+    h+='<div class="tape-row"><span>'+esc(r.memo||r.receipt)+' <span class="chip plain">'+r.rail+'</span></span>'
+      +'<span class="amount">'+(r.amount<0?'−':'')+money(Math.abs(r.amount))+'</span>'
+      +'<span class="sub">'+tShort(r.ts)+' · '+esc(nameOf(r.payer))+' → '+esc(nameOf(r.payee))+' · '+stub(r.receipt,12)+'</span></div>';
+  });
+  h+='</div>';
+  return h;
+}
+
+function rWallet(){
+  var h='<h2 class="h2" style="margin-top:2px">Budgets (spend rolls up)</h2><div class="card">';
+  function bar(b,indent){
+    var sp=OS.budgets.spent(b.id),pc=Math.min(100,Math.round(sp/b.limit*100));
+    h+='<div class="bud '+(pc>=85?'warn':'')+' '+(indent===1?'indent1':indent===2?'indent2':'')+'">'
+      +'<div class="lbl"><span>'+esc(b.name)+(b.deny_categories.length?' <span class="chip stamp-c">no '+esc(b.deny_categories.join(','))+'</span>':'')+'</span>'
+      +'<span class="mono">'+money(sp)+' / '+money(b.limit)+'</span></div>'
+      +'<div class="bar"><div class="fill" style="width:'+pc+'%"></div></div></div>';
+    Object.values(OS.budgets.byId).filter(x=>x.parent===b.id).forEach(c=>bar(c,Math.min(2,indent+1)));
+  }
+  Object.values(OS.budgets.byId).filter(b=>!b.parent).forEach(b=>bar(b,0));
+  h+='</div>';
+  h+='<h2 class="h2">Ledger</h2><div class="ledger-tape">';
+  if(!OS.spend.ledger.length)h+='<div class="tape-empty">Empty ledger. Every settled receipt and refund lands here.</div>';
+  OS.spend.ledger.slice(0,40).forEach(function(r){
+    h+='<div class="tape-row"><span>'+esc(r.memo||'—')+' <span class="chip plain">'+r.rail+'</span></span>'
+      +'<span class="amount">'+(r.amount<0?'−':'')+money(Math.abs(r.amount))+'</span>'
+      +'<span class="sub">'+tShort(r.ts)+' · '+esc(nameOf(r.payer))+' → '+esc(nameOf(r.payee))+' · rcpt '+stub(r.receipt,12)+'</span></div>';
+  });
+  h+='</div>';
+  return h;
+}
+
+function rPolicy(){
+  var h='';
+  LAYERS.forEach(function(L){
+    var rs=OS.policy.rules.filter(r=>r.layer===L);
+    h+='<div class="card"><h3 style="text-transform:capitalize">'+L+' layer</h3>';
+    if(!rs.length)h+='<div class="small">No rules.</div>';
+    rs.forEach(function(r){
+      var eff=r.effect==='deny'?'stamp-c':(r.effect==='require_approval'?'manila-c':'seal-c');
+      h+='<div class="kv"><span><b>'+esc(r.label||r.id)+'</b><br><span class="small mono">'+esc(r.action)+' · '+esc(r.cond)+'</span></span>'
+        +'<span><span class="chip '+eff+'">'+r.effect.replace('require_approval','approval')+'</span>'
+        +((L==='org'||L==='user')?' <button class="btn sm ghost" data-act="ruleDel" data-id="'+r.id+'">Remove</button>':'')
+        +'</span></div>';
+    });
+    h+='</div>';
+  });
+  h+='<h2 class="h2">Add rule</h2><div class="card">'
+    +'<div class="grid2"><div class="field"><label>Layer</label><select data-keep="rlLayer"><option>org</option><option>user</option></select></div>'
+    +'<div class="field"><label>Effect</label><select data-keep="rlEffect"><option>deny</option><option>require_approval</option><option>allow</option></select></div></div>'
+    +'<div class="grid2"><div class="field"><label>Action pattern</label><select data-keep="rlAction"><option>purchase.*</option><option>tool.pay</option><option>*</option></select></div>'
+    +'<div class="field"><label>Label</label><input data-keep="rlLabel" placeholder="Night curfew"></div></div>'
+    +'<div class="field"><label>Condition — fields: amount, currency, category, actor, hour, spent_24h, name</label>'
+    +'<input data-keep="rlCond" placeholder="hour >= 22 || amount > 100"></div>'
+    +'<div class="rowline">'
+    +'<button class="chipbtn" data-act="rlTpl" data-v="amount > 100">amount &gt; 100</button>'
+    +'<button class="chipbtn" data-act="rlTpl" data-v="category == \'electronics\'">electronics</button>'
+    +'<button class="chipbtn" data-act="rlTpl" data-v="hour >= 22">after 10pm</button>'
+    +'<button class="chipbtn" data-act="rlTpl" data-v="spent_24h > 50">spent&gt;$50/24h</button>'
+    +'</div>'
+    +'<div class="btnrow"><button class="btn primary sm" data-act="ruleAdd">Add rule</button></div>'
+    +'<div class="small">Conditions run in a whitelisted evaluator — comparisons and &amp;&amp;/|| only, no calls, no side effects. Deny overrides approval overrides allow; sensitive actions default-deny.</div></div>';
+  h+='<h2 class="h2">Recent decisions</h2><div class="ledger-tape">';
+  if(!OS.policy.decisions.length)h+='<div class="tape-empty">No decisions yet.</div>';
+  OS.policy.decisions.slice(0,15).forEach(function(d){
+    var eff=d.effect==='deny'?'stamp-c':(d.effect==='require_approval'?'manila-c':'seal-c');
+    h+='<div class="tape-row"><span>'+esc(d.action)+(d.ctx.amount!==undefined?' · <span class="amount">'+money(d.ctx.amount)+'</span>':'')+'</span>'
+      +'<span><span class="chip '+eff+'">'+d.effect.replace('require_approval','approval')+'</span></span>'
+      +'<span class="sub">'+tShort(d.ts)+' · '+esc(d.layer)+': '+esc(d.rule_label)+'</span></div>';
+  });
+  h+='</div>';
+  return h;
+}
+
+function rAudit(){
+  var v=OS.audit.verify();
+  var h='<div class="card"><div class="rowline spread"><h3>Ledger integrity</h3>'
+    +(UIS.auditBad===null?'':'')+'</div>'
+    +'<div class="rowline">'
+    +'<button class="btn sm primary" data-act="verify">Verify chain</button>'
+    +(UIS.tamperBackup===null
+      ?'<button class="btn sm stamp-b" data-act="tamper">Tamper entry #3</button>'
+      :'<button class="btn sm seal-b" data-act="restore">Restore entry #3</button>')
+    +'<button class="btn sm ghost" data-act="export">Export .jsonl</button></div>'
+    +(UIS.auditBad===null?'<div class="small" style="margin-top:8px">Each entry hashes its content plus the previous hash. Verification recomputes the whole chain.</div>'
+      :(UIS.auditBad===true
+        ?'<div style="margin-top:10px"><span class="stamped ok fresh">Ledger intact</span> <span class="small mono">'+OS.audit.entries.length+' entries verified</span></div>'
+        :'<div style="margin-top:10px"><span class="stamped no fresh">Chain broken</span> <span class="small mono">first bad entry: #'+UIS.auditBad+'</span></div>'))
+    +'</div>';
+  h+='<div class="ledger-tape">';
+  var ents=OS.audit.entries,start=Math.max(0,ents.length-60);
+  for(var i=ents.length-1;i>=start;i--){
+    var e=ents[i];
+    var bad=(typeof UIS.auditBad==='number')&&i===UIS.auditBad;
+    if(bad)h+='<div class="break-seam"><span>chain breaks here</span></div>';
+    h+='<div class="tape-row'+(bad?' bad':'')+'"><span><b class="mono">#'+e.seq+'</b> '+esc(e.action)+'</span>'
+      +'<span class="mono small">'+stub(e.hash,10)+'</span>'
+      +'<span class="sub">'+tShort(e.ts)+' · '+esc(nameOf(e.actor)||e.actor)+' · prev '+stub(e.prev,10)+'</span></div>';
+  }
+  h+='</div>';
+  if(ents.length>60)h+='<div class="small" style="margin-top:8px">Showing latest 60 of '+ents.length+'. Export for the full chain.</div>';
+  return h;
+}
+
+var RENDER={overview:rOverview,events:rEvents,agents:rAgents,discover:rDiscover,tools:rTools,tasks:rTasks,shop:rShop,wallet:rWallet,policy:rPolicy,audit:rAudit};
+
+/* ===GRAPH_MODULE_START=== */
+/* ================= constellation: live 2D force graph ================= */
+var Graph=(function(){
+  var el=null,cv=null,ctx=null,dpr=1,cw=320,chh=380,active=false,rafId=null;
+  var nodes=[],edges=[],byKey={},posMem={},selected=null,dirty=true,physOn=true,alpha=0;
+  var filters={mandates:true,receipts:true,tasks:true,tools:true};
+  var view={x:160,y:170,s:1};
+  var pointers=new Map(),panStart=null,dragNode=null,pinchStart=null,downInfo=null;
+  var reduceMotion=(typeof matchMedia!=='undefined')&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var PAL={user:'#2F5D50',agent:'#1E2A24',org:'#5A665C',merchant:'#8a6d1a',
+    tool:'#5A665C',srv:'#5A665C',intent:'#CDBF95',cart:'#5A665C',payment:'#2F5D50',
+    rcp:'#2F5D50',task:'#1E2A24',appr:'#B23A2B',edge:'#5A665C',chain:'#1E2A24',money:'#2F5D50',vc:'#8a6d1a'};
+
+  function reheat(){alpha=Math.max(alpha,0.55);}
+  function markDirty(){dirty=true;reheat();}
+  function hardReset(){posMem={};nodes=[];edges=[];byKey={};selected=null;dirty=true;view={x:cw/2,y:chh*0.45,s:1};reheat();}
+
+  function spawnPos(key,es,placed){
+    for(var i=0;i<es.length;i++){
+      var e=es[i],other=null;
+      if(e.a===key)other=e.b; else if(e.b===key)other=e.a;
+      if(other&&placed[other])return {x:placed[other].x+(Math.random()*46-23),y:placed[other].y+(Math.random()*46-23)};
+    }
+    return {x:(Math.random()*120-60),y:(Math.random()*120-60)};
+  }
+
+  function build(){
+    nodes.forEach(function(n){posMem[n.key]={x:n.x,y:n.y};});
+    var ns=[],es=[];
+    function add(n){ns.push(n);}
+    function link(a,b,kind){es.push({a:a,b:b,kind:kind});}
+
+    Object.values(OS.ids.byDid).forEach(function(id){
+      add({key:id.did,type:'id',sub:id.kind,label:id.name,ref:id});
+    });
+    Object.values(OS.budgets.byId).forEach(function(b){
+      add({key:b.id,type:'bud',label:b.name,ref:b});
+      if(b.parent)link(b.id,b.parent,'struct');
+      if(b.owner&&OS.ids.get(b.owner))link(b.owner,b.id,'own');
+    });
+    Object.values(OS.ids.byDid).forEach(function(id){
+      id.vcs.forEach(function(vc){if(OS.ids.get(vc.issuer))link(vc.issuer,id.did,'vc');});
+    });
+    if(filters.tools){
+      add({key:'srv:'+W.tools.name,type:'srv',label:W.tools.name,ref:W.tools});
+      W.tools.list().forEach(function(t){
+        add({key:'tool:'+t.name,type:'tool',label:t.name,ref:t,paid:t.price>0});
+        link('tool:'+t.name,'srv:'+W.tools.name,'struct');
+      });
+    }
+    if(filters.mandates){
+      var ms=Object.values(OS.mandates.byId);
+      var keep={};
+      ms.filter(function(m){return m.type==='IntentMandate';}).slice(-8).forEach(function(m){keep[m.id]=1;});
+      ms.forEach(function(m){if(m.type==='CartMandate'&&keep[m.intent])keep[m.id]=1;});
+      ms.forEach(function(m){if(m.type==='PaymentMandate'&&keep[m.cart])keep[m.id]=1;});
+      ms.filter(function(m){return keep[m.id];}).forEach(function(m){
+        var sub=m.type==='IntentMandate'?'intent':(m.type==='CartMandate'?'cart':'payment');
+        add({key:m.id,type:'mnd',sub:sub,label:sub,ref:m});
+        if(sub==='intent'&&OS.ids.get(m.user))link(m.user,m.id,'chain');
+        if(sub==='cart'){link(m.intent,m.id,'chain');if(OS.ids.get(m.merchant))link(m.merchant,m.id,'chain');}
+        if(sub==='payment')link(m.cart,m.id,'chain');
+      });
+    }
+    if(filters.receipts){
+      OS.spend.ledger.filter(function(r){return r.amount>0;}).slice(0,12).forEach(function(r){
+        var key='r:'+r.receipt;
+        add({key:key,type:'rcp',label:money(r.amount),ref:r});
+        if(OS.ids.get(r.payer))link(r.payer,key,'money');
+        if(OS.ids.get(r.payee))link(key,r.payee,'money');
+        else if(filters.tools&&r.payee===W.tools.name)link(key,'srv:'+W.tools.name,'money');
+        if(r.tx){var tx=OS.budgets.txs.find(function(t){return t.id===r.tx;});
+          if(tx&&OS.budgets.byId[tx.budget])link(key,tx.budget,'money');}
+      });
+    }
+    if(filters.tasks){
+      OS.a2a.tasks.slice(0,8).forEach(function(t){
+        add({key:t.id,type:'task',sub:t.status,label:'task',ref:t});
+        if(OS.ids.get(t.agent))link(t.agent,t.id,'struct');
+      });
+    }
+    OS.approvals.forEach(function(a){
+      add({key:a.id,type:'appr',label:money(a.cart.total),ref:a});
+      if(OS.ids.get(a.user.did))link(a.user.did,a.id,'chain');
+      if(OS.ids.get(a.agent.did))link(a.agent.did,a.id,'chain');
+      link(a.id,a.cart.id,'chain');
+    });
+
+    var keys={};ns.forEach(function(n){keys[n.key]=1;});
+    es=es.filter(function(e){return keys[e.a]&&keys[e.b];});
+    var placed={};
+    ns.forEach(function(n){
+      var p=posMem[n.key]||spawnPos(n.key,es,placed);
+      n.x=p.x;n.y=p.y;n.vx=0;n.vy=0;n.pin=false;placed[n.key]=p;
+    });
+    nodes=ns;edges=es;byKey={};nodes.forEach(function(n){byKey[n.key]=n;});
+    if(selected&&!byKey[selected])selected=null;
+    reheat();
+  }
+
+  function tick(){
+    if(!physOn||alpha<=0.004)return false;
+    alpha*=0.986;
+    var i,j,n,m;
+    for(i=0;i<nodes.length;i++){n=nodes[i];n.fx=-n.x*0.02;n.fy=-n.y*0.02;}
+    for(i=0;i<nodes.length;i++)for(j=i+1;j<nodes.length;j++){
+      n=nodes[i];m=nodes[j];
+      var dx=m.x-n.x,dy=m.y-n.y,d2=dx*dx+dy*dy;
+      if(d2<1)d2=1; if(d2>72900)continue;
+      var f=1600/d2,dl=Math.sqrt(d2),ux=dx/dl,uy=dy/dl;
+      n.fx-=ux*f;n.fy-=uy*f;m.fx+=ux*f;m.fy+=uy*f;
+    }
+    for(i=0;i<edges.length;i++){
+      var e=edges[i],a=byKey[e.a],b=byKey[e.b];
+      var rest=e.kind==='struct'?60:(e.kind==='vc'?92:(e.kind==='money'?52:(e.kind==='own'?58:38)));
+      var dx2=b.x-a.x,dy2=b.y-a.y,dl2=Math.max(1,Math.hypot(dx2,dy2));
+      var f2=(dl2-rest)*0.035,ux2=dx2/dl2,uy2=dy2/dl2;
+      a.fx+=ux2*f2;a.fy+=uy2*f2;b.fx-=ux2*f2;b.fy-=uy2*f2;
+    }
+    for(i=0;i<nodes.length;i++){
+      n=nodes[i]; if(n.pin)continue;
+      n.vx=(n.vx+n.fx*alpha*2.1)*0.85;
+      n.vy=(n.fy*alpha*2.1+n.vy)*0.85;
+      n.x+=n.vx;n.y+=n.vy;
+    }
+    return true;
+  }
+
+  function nodeR(n){
+    if(n.type==='id')return 13;
+    if(n.type==='bud')return 11;
+    if(n.type==='srv')return 11;
+    if(n.type==='appr')return 10;
+    if(n.type==='task')return 8;
+    if(n.type==='tool')return 7;
+    if(n.type==='rcp')return 7;
+    return 5;
+  }
+  function neighborSet(key){
+    var s={};s[key]=1;
+    edges.forEach(function(e){if(e.a===key)s[e.b]=1;if(e.b===key)s[e.a]=1;});
+    return s;
+  }
+  function draw(){
+    if(!ctx)return;
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    ctx.clearRect(0,0,cw,chh);
+    ctx.setTransform(dpr,0,0,dpr,view.x*dpr,view.y*dpr);
+    ctx.scale(view.s,view.s);
+    var nb=selected?neighborSet(selected):null;
+    edges.forEach(function(e){
+      var a=byKey[e.a],b=byKey[e.b];
+      var hot=nb&&(nb[e.a]&&nb[e.b])&&(e.a===selected||e.b===selected);
+      ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);
+      ctx.lineWidth=(e.kind==='money'?1.7:1.1)/view.s;
+      var col=e.kind==='money'?PAL.money:(e.kind==='chain'?PAL.chain:(e.kind==='vc'?PAL.vc:PAL.edge));
+      ctx.strokeStyle=col;
+      ctx.globalAlpha=nb?(hot?0.95:0.12):0.5;
+      ctx.setLineDash(e.kind==='vc'?[4,3]:(e.kind==='own'?[2,3]:[]));
+      ctx.stroke();ctx.setLineDash([]);ctx.globalAlpha=1;
+    });
+    var t=performance.now()/600;
+    nodes.forEach(function(n){
+      var dim=nb&&!nb[n.key];
+      ctx.globalAlpha=dim?0.18:1;
+      var r=nodeR(n);
+      if(n.type==='id'){
+        ctx.beginPath();ctx.arc(n.x,n.y,r,0,7);
+        ctx.fillStyle=PAL[n.sub]||PAL.agent;ctx.fill();
+        ctx.fillStyle='#F7FAF2';ctx.font='bold '+(r-3)+'px system-ui,sans-serif';
+        ctx.textAlign='center';ctx.textBaseline='middle';
+        ctx.fillText(n.label.slice(0,1).toUpperCase(),n.x,n.y+0.5);
+      }else if(n.type==='bud'){
+        var b=n.ref,pc=Math.max(0,Math.min(1,OS.budgets.spent(b.id)/b.limit));
+        ctx.fillStyle='#F7FAF2';ctx.strokeStyle='#1E2A24';ctx.lineWidth=1.3/view.s;
+        ctx.fillRect(n.x-r,n.y-r,2*r,2*r);
+        ctx.fillStyle=pc>=0.85?'#B23A2B':'#2F5D50';
+        ctx.fillRect(n.x-r,n.y+r-2*r*pc,2*r,2*r*pc);
+        ctx.strokeRect(n.x-r,n.y-r,2*r,2*r);
+      }else if(n.type==='srv'){
+        ctx.strokeStyle=PAL.srv;ctx.lineWidth=1.3/view.s;
+        ctx.strokeRect(n.x-r,n.y-r*0.7,2*r,1.4*r);
+        ctx.beginPath();ctx.arc(n.x,n.y,1.6,0,7);ctx.fillStyle=PAL.srv;ctx.fill();
+      }else if(n.type==='tool'){
+        ctx.beginPath();ctx.arc(n.x,n.y,r,0,7);
+        ctx.fillStyle=n.paid?'#E9DFC2':'#F7FAF2';ctx.fill();
+        ctx.strokeStyle=PAL.tool;ctx.lineWidth=1.2/view.s;ctx.stroke();
+      }else if(n.type==='mnd'){
+        ctx.beginPath();ctx.arc(n.x,n.y,r,0,7);
+        ctx.fillStyle=n.sub==='intent'?PAL.intent:(n.sub==='cart'?'#F7FAF2':'#DDE9E1');
+        ctx.fill();ctx.strokeStyle=n.sub==='payment'?PAL.payment:'#5A665C';
+        ctx.lineWidth=1.1/view.s;ctx.stroke();
+      }else if(n.type==='rcp'){
+        ctx.fillStyle='#F7FAF2';ctx.strokeStyle=PAL.rcp;ctx.lineWidth=1.2/view.s;
+        ctx.fillRect(n.x-8,n.y-5,16,10);ctx.strokeRect(n.x-8,n.y-5,16,10);
+        ctx.beginPath();ctx.moveTo(n.x-4,n.y);ctx.lineTo(n.x-1,n.y+3);ctx.lineTo(n.x+5,n.y-3);
+        ctx.strokeStyle=PAL.rcp;ctx.stroke();
+      }else if(n.type==='task'){
+        ctx.beginPath();ctx.arc(n.x,n.y,r,0,7);
+        var st=n.ref.status;
+        ctx.fillStyle=st==='completed'?'#DDE9E1':(st==='input-required'?'#E9DFC2':'#F7FAF2');
+        ctx.fill();
+        ctx.strokeStyle=st==='canceled'||st==='failed'?'#B23A2B':'#1E2A24';
+        ctx.lineWidth=1.3/view.s;ctx.stroke();
+      }else if(n.type==='appr'){
+        ctx.beginPath();ctx.arc(n.x,n.y,r,0,7);
+        ctx.fillStyle='#E9DFC2';ctx.fill();
+        ctx.strokeStyle=PAL.appr;ctx.lineWidth=1.6/view.s;ctx.stroke();
+        var pr=reduceMotion?r+3:r+3+Math.sin(t*3)*2;
+        ctx.beginPath();ctx.arc(n.x,n.y,pr,0,7);
+        ctx.setLineDash([3,3]);ctx.stroke();ctx.setLineDash([]);
+      }
+      if(selected===n.key){
+        ctx.beginPath();ctx.arc(n.x,n.y,nodeR(n)+4,0,7);
+        ctx.strokeStyle='#2F5D50';ctx.lineWidth=2.2/view.s;ctx.stroke();
+      }
+      if((n.type==='id'||n.type==='bud'||n.type==='srv')&&view.s>0.55){
+        ctx.fillStyle=dim?'rgba(30,42,36,.25)':'#1E2A24';
+        ctx.font=(n.type==='id'?'600 ':'')+'9.5px system-ui,sans-serif';
+        ctx.textAlign='center';ctx.textBaseline='top';
+        ctx.fillText(n.label.length>16?n.label.slice(0,15)+'…':n.label,n.x,n.y+nodeR(n)+3);
+      }
+      ctx.globalAlpha=1;
+    });
+  }
+
+  function fit(){
+    if(!nodes.length)return;
+    var minx=1e9,miny=1e9,maxx=-1e9,maxy=-1e9;
+    nodes.forEach(function(n){minx=Math.min(minx,n.x);maxx=Math.max(maxx,n.x);miny=Math.min(miny,n.y);maxy=Math.max(maxy,n.y);});
+    var w=Math.max(60,maxx-minx),h=Math.max(60,maxy-miny);
+    view.s=Math.max(0.4,Math.min(1.6,Math.min((cw-56)/w,(chh-56)/h)));
+    view.x=cw/2-((minx+maxx)/2)*view.s;
+    view.y=chh/2-((miny+maxy)/2)*view.s;
+  }
+
+  function screenToWorld(sx,sy){return {x:(sx-view.x)/view.s,y:(sy-view.y)/view.s};}
+  function hitTest(sx,sy){
+    var p=screenToWorld(sx,sy);
+    for(var i=nodes.length-1;i>=0;i--){
+      var n=nodes[i],r=nodeR(n)+5;
+      if((p.x-n.x)*(p.x-n.x)+(p.y-n.y)*(p.y-n.y)<=r*r)return n;
+    }
+    return null;
+  }
+
+  function safeView(n){
+    var r=n.ref;
+    if(n.type==='id')return {name:r.name,kind:r.kind,did:r.did,fingerprint:r.fpr,credentials:r.vcs.length};
+    if(n.type==='bud')return {id:r.id,name:r.name,limit:r.limit,spent:Math.round(OS.budgets.spent(r.id)*100)/100,remaining:Math.round(OS.budgets.remaining(r.id)*100)/100,parent:r.parent,blocked:r.deny_categories};
+    if(n.type==='mnd')return r;
+    if(n.type==='rcp')return r;
+    if(n.type==='task')return {id:r.id,status:r.status,agent:nameOf(r.agent),text:r.text,artifacts:r.artifacts.length};
+    if(n.type==='appr')return {id:r.id,amount:r.cart.total,product:r.product.name,rule:r.decision.rule_label,requested_by:r.agent.name};
+    if(n.type==='tool')return {name:r.name,price:r.price,description:r.description};
+    if(n.type==='srv')return {server:r.name,tools:Object.keys(r.tools).length};
+    return {};
+  }
+  var JUMP={id:'agents',bud:'wallet',rcp:'wallet',task:'tasks',tool:'tools',srv:'tools',appr:'overview',mnd:'shop'};
+  function showDetail(n){
+    var d=el.querySelector('#gdetail');
+    if(!n){d.innerHTML='';return;}
+    var tchip={id:n.sub,bud:'budget',mnd:n.sub+' mandate',rcp:'receipt',task:'task · '+n.ref.status,appr:'approval pending',tool:'tool',srv:'mcp server'}[n.type]||n.type;
+    d.innerHTML='<div class="card"><div class="rowline spread"><h3>'+esc(n.type==='id'?n.ref.name:(n.type==='bud'?n.ref.name:n.label))+'</h3>'
+      +'<span class="chip plain">'+esc(tchip)+'</span></div>'
+      +'<div class="codebox">'+esc(JSON.stringify(safeView(n),null,1))+'</div>'
+      +'<div class="btnrow"><button class="btn sm" data-act="gJump" data-tab="'+(JUMP[n.type]||'overview')+'">Open '+(JUMP[n.type]||'overview')+'</button>'
+      +'<button class="btn sm ghost" data-act="gClear">Clear</button></div></div>';
+  }
+
+  function loop(){
+    rafId=null;
+    if(!el||!el.isConnected){active=false;return;}
+    if(UIS.tab==='graph'&&!document.hidden){
+      if(dirty){build();dirty=false;updateToolbar();}
+      tick();draw();
+    }
+    rafId=requestAnimationFrame(loop);
+  }
+  function ensureLoop(){if(!rafId)rafId=requestAnimationFrame(loop);}
+
+  function resize(){
+    if(!cv)return;
+    var wrap=el.querySelector('.gwrap');
+    cw=wrap.clientWidth;
+    chh=Math.max(300,Math.min(540,Math.round((window.innerHeight||600)*0.56)));
+    wrap.style.height=chh+'px';
+    dpr=Math.min(2.5,window.devicePixelRatio||1);
+    cv.width=Math.round(cw*dpr);cv.height=Math.round(chh*dpr);
+  }
+
+  function bindPointers(){
+    cv.addEventListener('pointerdown',function(e){
+      cv.setPointerCapture(e.pointerId);
+      pointers.set(e.pointerId,{x:e.offsetX,y:e.offsetY});
+      if(pointers.size===1){
+        downInfo={x:e.offsetX,y:e.offsetY,t:Date.now()};
+        var n=hitTest(e.offsetX,e.offsetY);
+        if(n){dragNode=n;n.pin=true;}
+        else panStart={vx:view.x,vy:view.y,x:e.offsetX,y:e.offsetY};
+      }else if(pointers.size===2){
+        dragNode&&(dragNode.pin=false);dragNode=null;panStart=null;
+        var pts=Array.from(pointers.values());
+        pinchStart={d:Math.hypot(pts[0].x-pts[1].x,pts[0].y-pts[1].y),s:view.s,
+          mx:(pts[0].x+pts[1].x)/2,my:(pts[0].y+pts[1].y)/2,vx:view.x,vy:view.y};
+      }
+    });
+    cv.addEventListener('pointermove',function(e){
+      if(!pointers.has(e.pointerId))return;
+      pointers.set(e.pointerId,{x:e.offsetX,y:e.offsetY});
+      if(pinchStart&&pointers.size===2){
+        var pts=Array.from(pointers.values());
+        var d=Math.hypot(pts[0].x-pts[1].x,pts[0].y-pts[1].y);
+        var ns=Math.max(0.35,Math.min(3,pinchStart.s*d/Math.max(20,pinchStart.d)));
+        var mx=(pts[0].x+pts[1].x)/2,my=(pts[0].y+pts[1].y)/2;
+        view.s=ns;
+        view.x=mx-((pinchStart.mx-pinchStart.vx)/pinchStart.s)*ns;
+        view.y=my-((pinchStart.my-pinchStart.vy)/pinchStart.s)*ns;
+        e.preventDefault();return;
+      }
+      if(dragNode){
+        var p=screenToWorld(e.offsetX,e.offsetY);
+        dragNode.x=p.x;dragNode.y=p.y;dragNode.vx=0;dragNode.vy=0;reheat();
+        e.preventDefault();
+      }else if(panStart){
+        view.x=panStart.vx+(e.offsetX-panStart.x);
+        view.y=panStart.vy+(e.offsetY-panStart.y);
+        e.preventDefault();
+      }
+    });
+    function up(e){
+      pointers.delete(e.pointerId);
+      if(pinchStart&&pointers.size<2)pinchStart=null;
+      if(downInfo&&pointers.size===0){
+        var moved=Math.hypot(e.offsetX-downInfo.x,e.offsetY-downInfo.y);
+        if(moved<7&&Date.now()-downInfo.t<400){
+          var n=hitTest(e.offsetX,e.offsetY);
+          selected=n?n.key:null;showDetail(n);
+        }
+      }
+      if(dragNode){dragNode.pin=false;dragNode=null;}
+      panStart=null;downInfo=null;
+    }
+    cv.addEventListener('pointerup',up);
+    cv.addEventListener('pointercancel',up);
+    cv.addEventListener('wheel',function(e){
+      e.preventDefault();
+      var ns=Math.max(0.35,Math.min(3,view.s*(e.deltaY<0?1.12:0.9)));
+      view.x=e.offsetX-((e.offsetX-view.x)/view.s)*ns;
+      view.y=e.offsetY-((e.offsetY-view.y)/view.s)*ns;
+      view.s=ns;
+    },{passive:false});
+  }
+
+  function toolbarHtml(){
+    return '<div class="gtoolbar">'
+      +'<button class="btn sm" data-act="gFit">Fit</button>'
+      +'<button class="btn sm" data-act="gPhys" id="gPhysBtn">Pause physics</button>'
+      +'<button class="btn sm primary" data-act="gVault">Export Obsidian vault</button>'
+      +'<button class="btn sm ghost" data-act="gDemo" id="gDemoBtn">Run demo here</button>'
+      +'</div>'
+      +'<div class="gtoolbar">'
+      +['mandates','receipts','tasks','tools'].map(function(f){
+        return '<button class="chipbtn" data-act="gFilter" data-v="'+f+'" aria-pressed="'+filters[f]+'">'+f+'</button>';
+      }).join('')+'</div>';
+  }
+  function legendHtml(){
+    return '<div class="glegend">'
+      +'<span><b style="color:#2F5D50">●</b> user</span><span><b>●</b> agent</span>'
+      +'<span><b style="color:#8a6d1a">●</b> merchant</span><span><b style="color:#5A665C">●</b> org</span>'
+      +'<span><b>▢</b> budget (fill = spent)</span><span><b style="color:#CDBF95">●</b> intent</span>'
+      +'<span><b style="color:#5A665C">●</b> cart</span><span><b style="color:#2F5D50">●</b> payment</span>'
+      +'<span><b style="color:#2F5D50">▭</b> receipt</span><span><b style="color:#B23A2B">◌</b> approval waiting</span>'
+      +'<span>┄ delegation VC</span><span>— money</span>'
+      +'</div>';
+  }
+  function updateToolbar(){
+    if(!el)return;
+    var pb=el.querySelector('#gPhysBtn');if(pb)pb.textContent=physOn?'Pause physics':'Resume physics';
+    var db=el.querySelector('#gDemoBtn');if(db){db.disabled=UIS.demoRunning;db.textContent=UIS.demoRunning?'Demo running…':'Run demo here';}
+    el.querySelectorAll('[data-act="gFilter"]').forEach(function(b){
+      b.setAttribute('aria-pressed',String(filters[b.getAttribute('data-v')]));
+    });
+  }
+
+  function mount(main){
+    if(!el){
+      el=document.createElement('div');
+      el.innerHTML='<section class="panel active" role="tabpanel">'
+        +'<div class="small" style="margin-bottom:8px">Every principal, budget, mandate, receipt, and task in the world — laid out live. Drag nodes, pinch to zoom, tap for the record behind a point. It redraws itself as the system acts.</div>'
+        +toolbarHtml()
+        +'<div class="gwrap"><canvas id="gcv" aria-label="Live constellation of the Proto world"></canvas></div>'
+        +legendHtml()
+        +'<div id="gdetail"></div>'
+        +'</section>';
+      cv=el.querySelector('#gcv');
+      ctx=cv.getContext('2d');
+      bindPointers();
+      window.addEventListener('resize',function(){if(el&&el.isConnected){resize();}});
+    }
+    if(main.firstElementChild!==el){
+      main.innerHTML='';main.appendChild(el);
+      resize();
+      if(dirty){build();dirty=false;}
+      fit();
+    }
+    updateToolbar();
+    active=true;ensureLoop();
+  }
+
+  return {mount:mount,markDirty:markDirty,hardReset:hardReset,fit:fit,
+    togglePhysics:function(){physOn=!physOn;if(physOn)reheat();updateToolbar();},
+    toggleFilter:function(f){filters[f]=!filters[f];markDirty();updateToolbar();},
+    clearSel:function(){selected=null;if(el)showDetail(null);},
+    _t:{build:build,tick:tick,nodes:function(){return nodes;},edges:function(){return edges;},
+        setSize:function(w,h){cw=w;chh=h;},alpha:function(){return alpha;}}};
+})();
+
+/* ================= obsidian vault export (store-only zip, no deps) ================= */
+var CRC_T=(function(){var t=[],c,n,k;for(n=0;n<256;n++){c=n;for(k=0;k<8;k++)c=(c&1)?(0xEDB88320^(c>>>1)):(c>>>1);t[n]=c>>>0;}return t;})();
+function crc32(u8){var c=0xFFFFFFFF;for(var i=0;i<u8.length;i++)c=CRC_T[(c^u8[i])&255]^(c>>>8);return (c^0xFFFFFFFF)>>>0;}
+function zipStore(files){
+  var enc=new TextEncoder();
+  var parts=[],central=[],offset=0;
+  var d=new Date();
+  var dt=((d.getHours()<<11)|(d.getMinutes()<<5)|(d.getSeconds()>>1))&0xFFFF;
+  var dd=(((d.getFullYear()-1980)<<9)|((d.getMonth()+1)<<5)|d.getDate())&0xFFFF;
+  function u16(v){return [v&255,(v>>>8)&255];}
+  function u32(v){return [v&255,(v>>>8)&255,(v>>>16)&255,(v>>>24)&255];}
+  files.forEach(function(f){
+    var name=enc.encode(f.name),data=(f.data instanceof Uint8Array)?f.data:enc.encode(f.data);
+    var crc=crc32(data);
+    var head=[].concat([0x50,0x4b,3,4],u16(20),u16(0x0800),u16(0),u16(dt),u16(dd),
+      u32(crc),u32(data.length),u32(data.length),u16(name.length),u16(0));
+    parts.push(new Uint8Array(head),name,data);
+    central.push({name:name,crc:crc,size:data.length,offset:offset});
+    offset+=head.length+name.length+data.length;
+  });
+  var cdStart=offset,cdLen=0;
+  central.forEach(function(c){
+    var rec=[].concat([0x50,0x4b,1,2],u16(20),u16(20),u16(0x0800),u16(0),u16(dt),u16(dd),
+      u32(c.crc),u32(c.size),u32(c.size),u16(c.name.length),u16(0),u16(0),u16(0),u16(0),
+      u32(0),u32(c.offset));
+    parts.push(new Uint8Array(rec),c.name);
+    cdLen+=rec.length+c.name.length;
+  });
+  var eocd=[].concat([0x50,0x4b,5,6],u16(0),u16(0),u16(files.length),u16(files.length),
+    u32(cdLen),u32(cdStart),u16(0));
+  parts.push(new Uint8Array(eocd));
+  var total=0;parts.forEach(function(p){total+=p.length;});
+  var out=new Uint8Array(total),pos=0;
+  parts.forEach(function(p){out.set(p,pos);pos+=p.length;});
+  return out;
+}
+function mdSan(s){return String(s).replace(/[\\/:*?"<>|#^\[\]]/g,'-').replace(/\s+/g,' ').trim()||'note';}
+function vaultFiles(){
+  var used={},noteName={};
+  function claim(base){
+    var n=mdSan(base),i=2,out=n;
+    while(used[out.toLowerCase()]){out=n+' ('+(i++)+')';}
+    used[out.toLowerCase()]=1;return out;
+  }
+  Object.values(OS.ids.byDid).forEach(function(id){noteName[id.did]=claim(id.name);});
+  Object.values(OS.budgets.byId).forEach(function(b){noteName[b.id]=claim(b.name);});
+  Object.values(OS.mandates.byId).forEach(function(m){noteName[m.id]=claim(m.id);});
+  OS.spend.ledger.forEach(function(r){if(r.amount>0&&!noteName['r:'+r.receipt])noteName['r:'+r.receipt]=claim(r.receipt);});
+  OS.a2a.tasks.forEach(function(t){noteName[t.id]=claim(t.id);});
+  function L(key){return '[['+noteName[key]+']]';}
+  function idL(did){return noteName[did]?L(did):String(did);}
+  var files=[],V='Proto Vault/';
+  function put(path,text){files.push({name:V+path,data:text});}
+  var vr=OS.audit.verify();
+  var now=nowIso();
+
+  Object.values(OS.ids.byDid).forEach(function(id){
+    var s='---\ndid: '+id.did+'\nkind: '+id.kind+'\nfingerprint: '+id.fpr+'\ncreated: '+id.created+'\n---\n\n# '+id.name+'\n\n';
+    var owned=Object.values(OS.budgets.byId).filter(function(b){return b.owner===id.did;});
+    if(owned.length){s+='## Budgets owned\n'+owned.map(function(b){return '- '+L(b.id)+' — '+money(OS.budgets.remaining(b.id))+' remaining of '+money(b.limit);}).join('\n')+'\n\n';}
+    if(id.vcs.length){s+='## Credentials held\n'+id.vcs.map(function(vc){return '- From '+idL(vc.issuer)+': '+Object.keys(vc.claims).map(function(k){return k+'='+vc.claims[k];}).join(', ')+' (expires '+vc.expires+')';}).join('\n')+'\n\n';}
+    var issued=[];Object.values(OS.ids.byDid).forEach(function(o){o.vcs.forEach(function(vc){if(vc.issuer===id.did)issued.push('- To '+idL(o.did)+': '+(vc.claims.role||'cred')+(vc.claims.scope?(' · '+vc.claims.scope):''));});});
+    if(issued.length)s+='## Credentials issued\n'+issued.join('\n')+'\n\n';
+    var rc=OS.spend.ledger.filter(function(r){return r.amount>0&&(r.payer===id.did||r.payee===id.did);}).slice(0,10);
+    if(rc.length)s+='## Recent receipts\n'+rc.map(function(r){return '- '+(noteName['r:'+r.receipt]?L('r:'+r.receipt):r.receipt)+' — '+money(r.amount)+' ('+r.rail+')';}).join('\n')+'\n';
+    put('Identities/'+noteName[id.did]+'.md',s);
+  });
+
+  Object.values(OS.budgets.byId).forEach(function(b){
+    var sp=OS.budgets.spent(b.id);
+    var s='---\nid: '+b.id+'\nlimit: '+b.limit+'\nspent: '+(Math.round(sp*100)/100)+'\nremaining: '+(Math.round((b.limit-sp)*100)/100)+'\n---\n\n# '+b.name+'\n\n';
+    s+='Owner: '+(b.owner?idL(b.owner):'—')+'\n';
+    s+='Parent: '+(b.parent?L(b.parent):'— (root)')+'\n';
+    var kids=Object.values(OS.budgets.byId).filter(function(x){return x.parent===b.id;});
+    if(kids.length)s+='Children: '+kids.map(function(k){return L(k.id);}).join(', ')+'\n';
+    if(b.deny_categories.length)s+='Blocked categories: '+b.deny_categories.join(', ')+'\n';
+    var txs=OS.budgets.txs.filter(function(t){return t.budget===b.id;});
+    if(txs.length){
+      s+='\n## Transactions (direct)\n| time | amount | memo |\n|---|---|---|\n';
+      txs.forEach(function(t){s+='| '+tShort(t.ts)+' | '+(t.amount<0?'−':'')+money(Math.abs(t.amount))+' | '+String(t.memo).replace(/\|/g,'/')+' |\n';});
+    }
+    put('Budgets/'+noteName[b.id]+'.md',s);
+  });
+
+  Object.values(OS.mandates.byId).forEach(function(m){
+    var s='---\nid: '+m.id+'\ntype: '+m.type+'\n---\n\n# '+m.type+' '+m.id+'\n\n';
+    if(m.type==='IntentMandate'){
+      s+='Signed by '+idL(m.user)+'\n\n- Description: '+m.description+'\n- Max amount: '+money(m.max_amount)+'\n- Category: '+m.category+'\n- Expires: '+m.expires+'\n';
+      var carts=Object.values(OS.mandates.byId).filter(function(x){return x.type==='CartMandate'&&x.intent===m.id;});
+      if(carts.length)s+='\nCarts under this intent: '+carts.map(function(c){return L(c.id);}).join(', ')+'\n';
+    }else if(m.type==='CartMandate'){
+      s+='Signed by merchant '+idL(m.merchant)+' · fulfills '+L(m.intent)+'\n\n';
+      s+='| item | qty | price |\n|---|---|---|\n';
+      m.items.forEach(function(it){s+='| '+it.name+' | '+it.qty+' | '+money(it.price)+' |\n';});
+      s+='\nTotal: **'+money(m.total)+'** '+m.currency+'\n';
+      var pays=Object.values(OS.mandates.byId).filter(function(x){return x.type==='PaymentMandate'&&x.cart===m.id;});
+      if(pays.length)s+='Payment: '+pays.map(function(p){return L(p.id);}).join(', ')+'\n';
+    }else{
+      s+='Signed by '+idL(m.user)+' · pays cart '+L(m.cart)+'\n\n- Amount: '+money(m.amount)+' '+m.currency+'\n- Rail: '+m.rail+'\n';
+    }
+    s+='\nSignature: `'+stub(m.sig,24)+'…`\n';
+    put('Mandates/'+noteName[m.id]+'.md',s);
+  });
+
+  OS.spend.ledger.filter(function(r){return r.amount>0;}).forEach(function(r){
+    var key='r:'+r.receipt;if(!noteName[key])return;
+    var s='---\nreceipt: '+r.receipt+'\nrail: '+r.rail+'\namount: '+r.amount+'\n---\n\n# Receipt '+r.receipt+'\n\n';
+    s+='- '+money(r.amount)+' '+r.currency+' via **'+r.rail+'**\n- Payer: '+idL(r.payer)+'\n- Payee: '+idL(r.payee)+'\n- Memo: '+(r.memo||'—')+'\n- Time: '+r.ts+'\n';
+    if(r.tx){var tx=OS.budgets.txs.find(function(t){return t.id===r.tx;});
+      if(tx)s+='- Charged to: '+L(tx.budget)+'\n';}
+    put('Receipts/'+noteName[key]+'.md',s);
+  });
+
+  OS.a2a.tasks.forEach(function(t){
+    var s='---\nid: '+t.id+'\nstatus: '+t.status+'\n---\n\n# Task '+t.id+'\n\nAgent: '+idL(t.agent)+'\n\n> '+t.text+'\n\n';
+    if(t.artifacts.length)s+='## Artifacts\n'+t.artifacts.map(function(a){return '- '+a;}).join('\n')+'\n\n';
+    s+='## History\n'+t.history.map(function(h){return '- '+h[0]+' at '+tShort(h[1]);}).join('\n')+'\n';
+    put('Tasks/'+noteName[t.id]+'.md',s);
+  });
+
+  var pol='# Policy rules\n\n';
+  LAYERS.forEach(function(Ly){
+    var rs=OS.policy.rules.filter(function(r){return r.layer===Ly;});
+    pol+='## '+Ly+'\n';
+    if(!rs.length){pol+='_none_\n\n';return;}
+    pol+='| label | action | condition | effect |\n|---|---|---|---|\n';
+    rs.forEach(function(r){pol+='| '+(r.label||r.id)+' | `'+r.action+'` | `'+r.cond.replace(/\|/g,'∣')+'` | '+r.effect+' |\n';});
+    pol+='\n';
+  });
+  put('Policy/Rules.md',pol);
+  var dec='# Recent policy decisions\n\n| time | action | amount | effect | rule |\n|---|---|---|---|---|\n';
+  OS.policy.decisions.slice(0,30).forEach(function(d){
+    dec+='| '+tShort(d.ts)+' | '+d.action+' | '+(d.ctx.amount!==undefined?money(d.ctx.amount):'—')+' | '+d.effect+' | '+String(d.rule_label).replace(/\|/g,'∣')+' |\n';
+  });
+  put('Policy/Decisions.md',dec);
+
+  var au='---\nentries: '+OS.audit.entries.length+'\nintegrity: '+(vr.ok?'intact':'BROKEN at #'+vr.first_bad)+'\nexported: '+now+'\n---\n\n# Audit Log\n\nHash-chained; each row commits to the previous hash.\n\n| # | time | actor | action | hash | prev |\n|---|---|---|---|---|---|\n';
+  OS.audit.entries.forEach(function(e){
+    au+='| '+e.seq+' | '+tShort(e.ts)+' | '+(noteName[e.actor]?L(e.actor):e.actor)+' | '+e.action+' | `'+stub(e.hash,10)+'` | `'+stub(e.prev,10)+'` |\n';
+  });
+  put('Audit/Audit Log.md',au);
+
+  var ev='# AG-UI event feed (latest '+Math.min(100,OS.agui.events.length)+')\n\n| time | run | type | data |\n|---|---|---|---|\n';
+  OS.agui.events.slice(0,100).forEach(function(e){
+    ev+='| '+tShort(e.ts)+' | '+stub(e.run,10)+' | '+e.type+' | '+JSON.stringify(e.data).replace(/\|/g,'∣').slice(0,80)+' |\n';
+  });
+  put('Events/Feed.md',ev);
+
+  var readme='# Proto — world snapshot\n\nExported '+now+' from the Proto web console.\n\n'
+    +'- Ledger integrity at export: **'+(vr.ok?'intact ✓':'broken at #'+vr.first_bad)+'** ('+OS.audit.entries.length+' entries)\n'
+    +'- Identities: '+Object.keys(OS.ids.byDid).length+' · Budgets: '+Object.keys(OS.budgets.byId).length
+    +' · Mandates: '+Object.keys(OS.mandates.byId).length+' · Receipts: '+OS.spend.ledger.filter(function(r){return r.amount>0;}).length
+    +' · Tasks: '+OS.a2a.tasks.length+'\n\n'
+    +'Start at '+idL(W.ana.did)+' or the root budget '+L('bud_org')+', or open [[Audit Log]].\n\n'
+    +'Open this folder as a vault in Obsidian and switch to graph view — the wikilinks reproduce the constellation.\n';
+  put('README.md',readme);
+  return files;
+}
+function exportVault(){
+  try{
+    var files=vaultFiles();
+    var bytes=zipStore(files);
+    var blob=new Blob([bytes],{type:'application/zip'});
+    var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='proto-obsidian-vault.zip';
+    document.body.appendChild(a);a.click();a.remove();
+    toast('Vault exported — '+files.length+' notes. Unzip and open in Obsidian.','ok');
+  }catch(e){toast('Vault export failed: '+(e.message||e),'err');}
+}
+/* ===GRAPH_MODULE_END=== */
+
+/* ---------- render machinery ---------- */
+function buildTabs(){
+  var t=$('#tabs');
+  t.innerHTML=TABS.map(function(tb){
+    var badge=(tb.id==='overview'&&OS.approvals.length)?'<span class="badge show">'+OS.approvals.length+'</span>':'<span class="badge"></span>';
+    return '<button class="tab" role="tab" data-tab="'+tb.id+'" aria-selected="'+(UIS.tab===tb.id)+'">'+tb.label+badge+'</button>';
+  }).join('');
+}
+function render(){
+  /* header seal + halt */
+  $('#sealTxt').textContent=OS.halted?'HALTED':'RUNNING';
+  $('#seal').classList.toggle('halted',OS.halted);
+  var hb=$('#haltBtn');hb.classList.toggle('on',OS.halted);
+  hb.setAttribute('aria-pressed',String(OS.halted));hb.textContent=OS.halted?'RESUME':'HALT';
+  buildTabs();
+  /* fab */
+  var showFab=OS.approvals.length>0&&UIS.tab!=='overview';
+  $('#fab').classList.toggle('show',showFab);$('#fabN').textContent=OS.approvals.length;
+  /* panel (preserve inputs + focus) */
+  var main=$('#main');
+  if(UIS.tab==='graph'){Graph.mount(main);return;}
+  var act=document.activeElement,actKey=act&&act.getAttribute?act.getAttribute('data-keep'):null;
+  var caret=(actKey&&act.selectionStart!==undefined)?act.selectionStart:null;
+  saveKeep(main);
+  main.innerHTML='<section class="panel active" role="tabpanel">'+RENDER[UIS.tab]()+'</section>';
+  restoreKeep(main);
+  if(actKey){var el=main.querySelector('[data-keep="'+actKey+'"]');
+    if(el){el.focus();if(caret!==null&&el.setSelectionRange)try{el.setSelectionRange(caret,caret);}catch(e){}}}
+}
+var _raf=null;
+function scheduleRender(){if(_raf)return;_raf=requestAnimationFrame(function(){_raf=null;render();});}
+
+/* ---------- sheets ---------- */
+function openToolSheet(name){
+  var t=W.tools.tools[name],ag=activeAgent();
+  var argKey=(name==='web.search')?'query':'text';
+  var sample=name==='echo'?'hello proto':(name==='web.search'?'quiet headphones':'The mandate chain binds intent, cart, and payment so agents can spend safely under human-set ceilings.');
+  var h='<h3 class="mono">'+esc(name)+'</h3><div class="small">'+esc(t.description)+'</div>'
+    +'<div class="field"><label>'+argKey+'</label><textarea id="toolArg">'+esc(sample)+'</textarea></div>'
+    +(t.price>0?'<div class="small">Paid tool — will auto-pay <b class="amount">'+money(t.price)+'</b> via <b>'+OS.payMode+'</b> from <b>'+esc(budName(budgetOf(ag.did)))+'</b>.</div>':'')
+    +'<div class="btnrow"><button class="btn primary" id="doCall">'+(t.price>0?'Pay '+money(t.price)+' & call':'Call')+'</button>'
+    +'<button class="btn ghost" id="shClose">Close</button></div><div id="toolOut"></div>';
+  openSheet(h);
+  $('#shClose').onclick=closeSheet;
+  $('#doCall').onclick=function(){
+    var args={};args[argKey]=$('#toolArg').value;
+    var out=$('#toolOut');
+    try{
+      if(t.price>0){
+        var pre=W.tools.call(name,args,null);
+        if(pre.error&&pre.error.code===402){
+          out.innerHTML='<hr class="rulehr"><div class="small">HTTP 402 challenge from server:</div>'
+            +'<div class="codebox">'+esc(JSON.stringify(pre.error.data,null,1))+'</div>'
+            +'<div class="btnrow"><button class="btn seal-b" id="payGo">Settle & retry</button></div>';
+          $('#payGo').onclick=function(){execCall();};
+          return;
+        }
+      }
+      execCall();
+    }catch(e){fail(e);}
+    function execCall(){
+      try{
+        var r=OS.callTool(ag,W.tools,name,args,{budgetId:budgetOf(ag.did)});
+        var paidLine='';
+        if(t.price>0){var led=OS.spend.ledger[0];
+          paidLine='<div class="small">Paid <span class="amount">'+money(t.price)+'</span> · rail '+led.rail+' · receipt <span class="mono">'+stub(led.receipt,12)+'</span></div>';}
+        out.innerHTML='<hr class="rulehr">'+paidLine+'<div class="codebox">'+esc(r.text)+'</div>';
+      }catch(e){fail(e);}
+    }
+    function fail(e){
+      out.innerHTML='<hr class="rulehr"><div class="codebox" style="border-color:var(--stamp)">'+esc((e.kind?e.kind+': ':'')+(e.message||e))+'</div>';
+      toast(e.message||String(e),'err');
+    }
+  };
+}
+
+function openBuySheet(sku){
+  var p=W.catalog.find(x=>x.sku===sku),ag=activeAgent();
+  var opts=[[budgetOf(ag.did),budName(budgetOf(ag.did))+' (agent slice)'],['bud_ana','Ana'],['bud_org','Co-op monthly']];
+  var h='<h3>'+p.ic+' '+esc(p.name)+'</h3>'
+    +'<div class="kv"><span>Price</span><b class="amount">'+money(p.price)+'</b></div>'
+    +'<div class="kv"><span>Category</span><b>'+esc(p.category)+'</b></div>'
+    +'<div class="kv"><span>Buying agent</span><b>'+esc(ag.name)+'</b></div>'
+    +'<div class="field"><label>Charge to budget</label><select id="buyBud">'
+    +opts.map(o=>'<option value="'+o[0]+'">'+esc(o[1])+' — '+money(OS.budgets.remaining(o[0]))+' left</option>').join('')+'</select></div>'
+    +'<label class="rowline small" style="gap:8px;margin:6px 0"><input type="checkbox" id="buyTamper" style="width:20px;height:20px"> Tamper with cart total (+$5) to test chain verification</label>'
+    +'<div class="btnrow"><button class="btn primary" id="buyGo">Sign mandates & checkout</button>'
+    +'<button class="btn ghost" id="shClose">Close</button></div><div id="buyOut"></div>';
+  openSheet(h);
+  $('#shClose').onclick=closeSheet;
+  $('#buyGo').onclick=function(){
+    var out=$('#buyOut');
+    try{
+      var res=OS.purchase(W.ana,ag,W.merchant,p,$('#buyBud').value,{tamper:$('#buyTamper').checked});
+      var hh='<hr class="rulehr">';
+      if(res.chain){
+        hh+='<div class="small" style="margin-bottom:4px">AP2 mandate chain</div>';
+        res.chain.steps.forEach(function(s){
+          hh+='<div class="step '+(s.ok?'ok':'no')+'"><span class="mk">'+(s.ok?'✓':'✗')+'</span><span>'+esc(s.name)+(s.note?' <span class="small">('+esc(s.note)+')</span>':'')+'</span></div>';
+        });
+      }
+      if(res.ok){
+        hh+='<div style="margin-top:10px"><span class="stamped ok fresh">Settled</span> <span class="small">'+esc(res.reason)+'</span></div>';
+      }else if(res.stage==='approval'){
+        hh+='<div class="slip" style="margin-top:10px"><b>Waiting for your stamp.</b><div class="small">'+esc(res.reason)+' — approve or deny it on the Overview tab.</div></div>';
+      }else{
+        hh+='<div style="margin-top:10px"><span class="stamped no fresh">Denied</span> <span class="small">'+esc(res.reason)+'</span></div>';
+      }
+      out.innerHTML=hh;
+    }catch(e){
+      out.innerHTML='<hr class="rulehr"><div class="codebox" style="border-color:var(--stamp)">'+esc((e.kind?e.kind+': ':'')+(e.message||e))+'</div>';
+      toast(e.message||String(e),'err');
+    }
+  };
+}
+
+/* ---------- guided demo ---------- */
+function dlog(msg){UIS.demoLog.push([tShort(nowIso()),msg]);if(UIS.tab==='overview')scheduleRender();}
+async function runDemo(){
+  if(UIS.demoRunning)return;
+  UIS.demoRunning=true;UIS.demoLog=[];render();
+  try{
+    dlog('▶ run started — full pass through every subsystem');
+    await sleep(500);
+    var hits=OS.registry.search('shopping');
+    dlog('1 discovery: “shopping” → '+hits[0].card.name+' (score '+hits[0].score+')');
+    await sleep(650);
+    dlog('2 delegation: Ana already issued VCs; shopper slice '+money(OS.budgets.remaining('bud_shopper'))+', research slice '+money(OS.budgets.remaining('bud_research')));
+    await sleep(650);
+    var r1=OS.callTool(W.research,W.tools,'web.search',{query:'quiet headphones'},{budgetId:'bud_research'});
+    dlog('3 free tool: web.search → '+r1.text.split('\n')[0]);
+    await sleep(700);
+    var r2=OS.callTool(W.research,W.tools,'premium.summarize',{text:r1.text},{budgetId:'bud_research'});
+    dlog('4 paid tool: 402 → auto-paid $0.10 via '+OS.payMode+' → '+r2.text.slice(0,52)+'…');
+    await sleep(700);
+    var cable=W.catalog.find(p=>p.sku==='NW-CBL');
+    var b1=OS.purchase(W.ana,W.shopper,W.merchant,cable,'bud_shopper',{});
+    dlog('5 small purchase: '+cable.name+' '+money(cable.price)+' → '+(b1.ok?'auto-allowed & settled':b1.reason));
+    await sleep(700);
+    var hp=W.catalog.find(p=>p.sku==='NW-HDP');
+    var b2=OS.purchase(W.ana,W.shopper,W.merchant,hp,'bud_ana',{});
+    if(b2.stage==='approval'){
+      dlog('6 large purchase: '+money(hp.price)+' → parked for approval. Stamp it on Overview (or tap the Approvals badge).');toast('Approval waiting for your stamp','ok');
+      var out=await b2.approval.promise;
+      dlog('   your decision → '+(out.ok?'approved; '+out.reason:out.reason));
+    }else{dlog('6 large purchase: '+b2.reason);}
+    await sleep(650);
+    var cam=W.catalog.find(p=>p.sku==='NW-CAM');
+    var b3=OS.purchase(W.ana,W.shopper,W.merchant,cam,'bud_shopper',{});
+    dlog('7 blocked item: '+cam.name+' → '+(b3.ok?'unexpected!':b3.reason));
+    await sleep(650);
+    var v=OS.audit.verify();
+    dlog('8 audit: verified '+OS.audit.entries.length+' hash-chained entries → '+(v.ok?'intact ✓':'BROKEN at #'+v.first_bad));
+    var spent=OS.spend.ledger.reduce((s,r)=>s+(r.amount>0?r.amount:0),0);
+    dlog('■ run finished — session spend '+money(spent)+' across '+OS.spend.ledger.filter(r=>r.amount>0).length+' receipts');
+  }catch(e){
+    dlog('✗ aborted — '+(e.message||e));
+  }
+  UIS.demoRunning=false;scheduleRender();
+}
+
+/* ---------- stress test ---------- */
+async function stressTest(){
+  var ag=activeAgent(),ok=0,lim=0;
+  for(var i=0;i<12;i++){
+    try{OS.callTool(ag,W.tools,'echo',{text:'ping '+i},{budgetId:budgetOf(ag.did)});ok++;}
+    catch(e){if(e.kind==='RateLimited')lim++;else{toast(e.message,'err');break;}}
+    await sleep(45);
+  }
+  toast('Stress test: '+ok+' served, '+lim+' rate-limited','ok');
+}
+
+/* ---------- actions ---------- */
+function stampAndResolve(id,approve){
+  var slip=$('#slip_'+id);
+  if(slip){
+    slip.querySelectorAll('button').forEach(b=>b.disabled=true);
+    var s=document.createElement('div');
+    s.innerHTML='<span class="stamped '+(approve?'ok':'no')+' fresh" style="margin-top:8px">'+(approve?'Approved':'Denied')+'</span>';
+    slip.appendChild(s);
+  }
+  setTimeout(function(){
+    var out=OS.resolveApproval(id,approve,'Ana');
+    toast(out.ok?out.reason:(out.reason||'Denied'),out.ok?'ok':'err');
+  },650);
+}
+function downloadAudit(){
+  var blob=new Blob([OS.audit.exportJsonl()],{type:'application/jsonl'});
+  var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='proto-audit.jsonl';
+  document.body.appendChild(a);a.click();a.remove();
+  toast('Audit exported — '+OS.audit.entries.length+' entries','ok');
+}
+
+document.addEventListener('click',function(ev){
+  var tabBtn=ev.target.closest('[data-tab]');
+  if(tabBtn){UIS.tab=tabBtn.getAttribute('data-tab');render();return;}
+  var el=ev.target.closest('[data-act]'); if(!el)return;
+  var act=el.getAttribute('data-act'),id=el.getAttribute('data-id'),v=el.getAttribute('data-v');
+  try{
+    switch(act){
+      case 'demo':runDemo();break;
+      case 'export':downloadAudit();break;
+      case 'reset':bootWorld();UIS.demoLog=[];UIS.auditBad=null;UIS.tamperBackup=null;render();toast('World reset','ok');break;
+      case 'approve':stampAndResolve(id,true);break;
+      case 'denyap':stampAndResolve(id,false);break;
+      case 'evf':UIS.evFilter=v;render();break;
+      case 'tokIssue':{
+        var sub=OS.ids.get(UIS.keep.tokSub)||W.ana;
+        OS.ids.issueToken(sub,UIS.keep.tokAud||'tools.proto.local',15,[]);
+        toast('Token issued for '+sub.name,'ok');render();break;}
+      case 'tokRevoke':OS.ids.revoke(id);render();break;
+      case 'tokExch':{
+        var rec=OS.ids.tokens[id];
+        if(rec){var r=OS.ids.exchange(rec.tk,W.shopper,rec.tk.aud);
+          toast(r.ok?'Exchanged — act chain: '+r.token.act.map(nameOf).join(' → ')+' → shopper-agent':'Exchange failed: '+r.reason,r.ok?'ok':'err');}
+        render();break;}
+      case 'agCreate':{
+        var nm=(UIS.keep.agName||'').trim(),sk=(UIS.keep.agSkills||'').split(',').map(s=>s.trim()).filter(Boolean);
+        var slice=parseFloat(UIS.keep.agSlice||'10');
+        if(!nm){toast('Give the agent a name','err');break;}
+        if(!(slice>0)||slice>OS.budgets.remaining('bud_ana')){toast('Slice must be > 0 and within Ana\u2019s remaining '+money(OS.budgets.remaining('bud_ana')),'err');break;}
+        var agn=OS.ids.create(nm,'agent');
+        OS.ids.issueVC(W.ana,agn,{role:'delegate',scope:'tool.call'},240);
+        var bb=OS.budgets.create(null,nm+' slice',slice,'bud_ana',agn.did,[]);
+        W.budByDid[agn.did]=bb.id;
+        OS.registry.register(makeAgentCard(agn,'Custom agent.',sk.length?sk:['general'],0));
+        UIS.keep.agName='';UIS.keep.agSkills='';UIS.keep.agSlice='';
+        toast(nm+' created, delegated, funded '+money(slice),'ok');render();break;}
+      case 'useAgent':UIS.keep.agentDid=id;toast('Active agent: '+nameOf(id),'ok');render();break;
+      case 'paymode':OS.payMode=v;render();break;
+      case 'mppClose':{var r2=OS.closeMppSession();toast(r2.ok?'Session closed — refunded '+money(r2.refund):r2.reason,r2.ok?'ok':'err');break;}
+      case 'toolOpen':openToolSheet(id);break;
+      case 'stress':stressTest();break;
+      case 'taskNew':{
+        var txt=(UIS.keep.taskText||'').trim();
+        if(!txt){toast('Describe the task first','err');break;}
+        OS.gateHalt();
+        OS.a2a.submit(activeAgent().did,txt);
+        UIS.keep.taskText='';render();toast('Task submitted','ok');break;}
+      case 'taskYes':OS.a2a.provideInput(id,'yes');break;
+      case 'taskNo':OS.a2a.provideInput(id,'no');break;
+      case 'taskCancel':OS.a2a.cancel(id);break;
+      case 'buyOpen':openBuySheet(id);break;
+      case 'ruleDel':OS.policy.removeRule(id);render();break;
+      case 'rlTpl':{UIS.keep.rlCond=v;var inp=$('[data-keep="rlCond"]');if(inp)inp.value=v;break;}
+      case 'ruleAdd':{
+        var cond=(UIS.keep.rlCond||'').trim()||'true';
+        try{evalCond(cond,{amount:1,currency:'USD',category:'x',action:'a',actor:'d',hour:1,spent_24h:0,name:'t'});}
+        catch(e){toast('Condition won\u2019t parse: '+e.message,'err');break;}
+        OS.policy.addRule(UIS.keep.rlLayer||'org',UIS.keep.rlAction||'purchase.*',cond,UIS.keep.rlEffect||'deny',UIS.keep.rlLabel||cond);
+        UIS.keep.rlCond='';UIS.keep.rlLabel='';
+        toast('Rule added','ok');render();break;}
+      case 'gFit':Graph.fit();break;
+      case 'gPhys':Graph.togglePhysics();break;
+      case 'gFilter':Graph.toggleFilter(v);break;
+      case 'gVault':exportVault();break;
+      case 'gDemo':runDemo();break;
+      case 'gClear':Graph.clearSel();break;
+      case 'gJump':{UIS.tab=el.getAttribute('data-tab')||'overview';render();break;}
+      case 'verify':{var vr=OS.audit.verify();UIS.auditBad=vr.ok?true:vr.first_bad;render();break;}
+      case 'tamper':{
+        var e3=OS.audit.entries[3]; if(!e3){toast('Need at least 4 entries','err');break;}
+        UIS.tamperBackup=JSON.parse(JSON.stringify(e3.data));
+        e3.data={__tampered:'amount quietly changed'};
+        var vr2=OS.audit.verify();UIS.auditBad=vr2.ok?true:vr2.first_bad;
+        render();toast('Entry #3 mutated in memory — chain now breaks there','err');break;}
+      case 'restore':{
+        if(UIS.tamperBackup!==null){OS.audit.entries[3].data=UIS.tamperBackup;UIS.tamperBackup=null;}
+        var vr3=OS.audit.verify();UIS.auditBad=vr3.ok?true:vr3.first_bad;
+        render();toast('Entry #3 restored — chain intact again','ok');break;}
+    }
+  }catch(e){toast((e.kind?e.kind+': ':'')+(e.message||e),'err');}
+});
+
+document.addEventListener('input',function(ev){
+  var el=ev.target.closest('[data-act-input]'); if(!el)return;
+  UIS.keep[el.getAttribute('data-keep')]=el.value;
+  render();
+});
+document.addEventListener('change',function(ev){
+  var el=ev.target.closest('select[data-keep]'); if(!el)return;
+  UIS.keep[el.getAttribute('data-keep')]=el.value;
+  if(el.getAttribute('data-act-input')==='rerender')render();
+});
+
+/* ---------- boot ---------- */
+function bootWorld(){
+  seedWorld();
+  OS.onChange(scheduleRender);
+  OS.onChange(function(){Graph.markDirty();});
+  Graph.hardReset();
+  UIS.keep.agentDid=W.research.did;
+}
+(function init(){
+  if(sha('abc')!=='ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad'){
+    document.body.innerHTML='<div style="padding:20px;font-family:monospace">hash self-test failed — cannot guarantee ledger integrity in this browser.</div>';return;
+  }
+  bootWorld();
+  $('#haltBtn').onclick=function(){OS.setHalt(!OS.halted,'user');toast(OS.halted?'Kill switch engaged — everything halts':'Resumed','ok');};
+  $('#fab').onclick=function(){UIS.tab='overview';render();var a=$('#apprAnchor');if(a)a.scrollIntoView({behavior:'smooth'});};
+  $('#scrim').onclick=closeSheet;
+  document.addEventListener('keydown',function(e){if(e.key==='Escape')closeSheet();});
+  render();
+})();
+</script>
+</body>
+</html>
