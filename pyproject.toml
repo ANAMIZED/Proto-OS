@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "protoos"
+version = "0.2.0"
+description = "ProtoOS — Unified Autonomous Protocols Operating System (reference implementation)"
+readme = "README.md"
+requires-python = ">=3.12"
+license = {text = "Apache-2.0"}
+authors = [{name = "The ProtoOS Authors"}]
+keywords = ["agents", "mcp", "a2a", "ap2", "x402", "policy", "autonomous", "os"]
+dependencies = []
+
+[project.optional-dependencies]
+crypto = ["cryptography>=42.0.0"]
+dev = ["pytest>=8.0.0"]
+
+[project.scripts]
+protoos-verify = "protoos.verify:main"
+
+[tool.setuptools.packages.find]
+include = ["protoos*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
