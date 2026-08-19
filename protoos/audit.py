@@ -1,96 +1,112 @@
 """Observability & Audit.
 
-  - AuditLog: hash-chained, tamper-evident log of every mandate, tool call,
-    delegation and payment. append() deep-copies payloads.
-  - Tracer: OTel-shaped spans for run/tool/purchase/graph.
+  - AuditLog: hash-chained, tamper-evident record of every mandate, policy
+    decision, tool call, delegation and payment.
+  - Tracer: OpenTelemetry-shaped spans (trace/span/parent ids, wall times,
+    attributes) covering task graphs, tool latency, settlement times and
+    policy decisions; exportable as JSONL.
 """
 from __future__ import annotations
 
 import copy
-import hashlib
+
+import contextlib
 import json
-from dataclasses import dataclass, field
-from typing import Any
+import threading
+from pathlib import Path
 
 from .canonical import Clock, cjson, new_id, sha256_hex
+
+GENESIS = "0" * 64
 
 
 class AuditLog:
     def __init__(self, clock: Clock):
         self.clock = clock
         self.entries: list[dict] = []
-        self._prev = "0" * 64
+        self._lock = threading.Lock()
 
-    def append(self, actor: str, action: str, payload: dict | None = None) -> dict:
-        # Deep-copy to close aliasing hole (caller must not be able to mutate
-        # the logged dict and break the hash chain after the fact).
-        body = {
-            "seq": len(self.entries),
-            "ts": self.clock.now(),
-            "actor": actor,
-            "action": action,
-            "payload": copy.deepcopy(payload or {}),
-            "prev": self._prev,
-        }
-        body["hash"] = sha256_hex(cjson(body))
-        self._prev = body["hash"]
-        self.entries.append(body)
-        return body
+    def append(self, actor: str, action: str, payload: dict) -> dict:
+        payload = copy.deepcopy(payload)  # chain integrity: own the bytes we hash
+        with self._lock:
+            prev = self.entries[-1]["hash"] if self.entries else GENESIS
+            entry = {
+                "i": len(self.entries),
+                "ts": self.clock.now(),
+                "actor": actor,
+                "action": action,
+                "payload": payload,
+                "payload_hash": sha256_hex(cjson(payload)),
+                "prev": prev,
+            }
+            entry["hash"] = sha256_hex(cjson(entry))
+            self.entries.append(entry)
+            return entry
 
     def verify(self) -> tuple[bool, int | None]:
-        prev = "0" * 64
+        prev = GENESIS
         for i, e in enumerate(self.entries):
-            if e.get("prev") != prev:
+            body = {k: v for k, v in e.items() if k != "hash"}
+            if e.get("prev") != prev or e.get("i") != i:
                 return False, i
-            check = {k: v for k, v in e.items() if k != "hash"}
-            if sha256_hex(cjson(check)) != e.get("hash"):
+            if sha256_hex(cjson(e["payload"])) != e.get("payload_hash"):
+                return False, i
+            if sha256_hex(cjson(body)) != e.get("hash"):
                 return False, i
             prev = e["hash"]
         return True, None
 
-    def export_jsonl(self) -> str:
-        return "\n".join(json.dumps(e, sort_keys=True) for e in self.entries) + "\n"
+    def by_action(self, prefix: str) -> list[dict]:
+        return [e for e in self.entries if e["action"].startswith(prefix)]
 
-
-@dataclass
-class Span:
-    name: str
-    start: float
-    end: float | None = None
-    parent: str | None = None
-    attrs: dict = field(default_factory=dict)
-    status: str = "ok"
-    span_id: str = field(default_factory=lambda: new_id("span"))
+    def export_jsonl(self, path: str | Path) -> int:
+        p = Path(path)
+        with p.open("w") as f:
+            for e in self.entries:
+                f.write(json.dumps(e, sort_keys=True) + "\n")
+        return len(self.entries)
 
 
 class Tracer:
     def __init__(self, clock: Clock):
         self.clock = clock
-        self.spans: list[Span] = []
-        self._stack: list[Span] = []
+        self.spans: list[dict] = []
+        self._stack = threading.local()
+        self._lock = threading.Lock()
 
-    def start(self, name: str, **attrs) -> Span:
-        parent = self._stack[-1].span_id if self._stack else None
-        s = Span(name=name, start=self.clock.now(), parent=parent, attrs=attrs)
-        self._stack.append(s)
-        self.spans.append(s)
-        return s
+    def _current(self):
+        return getattr(self._stack, "frames", [])
 
-    def end(self, span: Span | None = None, status: str = "ok") -> None:
-        s = span or (self._stack[-1] if self._stack else None)
-        if not s:
-            return
-        s.end = self.clock.now()
-        s.status = status
-        if self._stack and self._stack[-1] is s:
-            self._stack.pop()
+    @contextlib.contextmanager
+    def span(self, name: str, attrs: dict | None = None):
+        frames = self._current()
+        parent = frames[-1] if frames else None
+        s = {
+            "trace_id": parent["trace_id"] if parent else new_id("trace"),
+            "span_id": new_id("span"),
+            "parent_id": parent["span_id"] if parent else None,
+            "name": name,
+            "start": self.clock.now(),
+            "attrs": dict(attrs or {}),
+            "status": "ok",
+        }
+        self._stack.frames = frames + [s]
+        try:
+            yield s
+        except Exception as exc:
+            s["status"] = "error"
+            s["attrs"]["error"] = f"{type(exc).__name__}: {exc}"
+            raise
+        finally:
+            s["end"] = self.clock.now()
+            s["duration_ms"] = round((s["end"] - s["start"]) * 1000, 3)
+            self._stack.frames = self._current()[:-1]
+            with self._lock:
+                self.spans.append(s)
 
-    def export_jsonl(self) -> str:
-        rows = []
-        for s in self.spans:
-            rows.append({
-                "span_id": s.span_id, "name": s.name, "start": s.start,
-                "end": s.end, "parent": s.parent, "status": s.status,
-                "attrs": s.attrs,
-            })
-        return "\n".join(json.dumps(r, sort_keys=True) for r in rows) + "\n"
+    def export_jsonl(self, path: str | Path) -> int:
+        p = Path(path)
+        with p.open("w") as f:
+            for s in self.spans:
+                f.write(json.dumps(s, sort_keys=True) + "\n")
+        return len(self.spans)
