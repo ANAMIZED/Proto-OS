@@ -1,0 +1,31 @@
+# ProtoOS control-plane Deployment (reference shapes).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: protoos-control-plane
+  labels:
+    app: protoos
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: protoos
+  template:
+    metadata:
+      labels:
+        app: protoos
+    spec:
+      containers:
+        - name: control-plane
+          image: protoos:0.2.0
+          ports:
+            - containerPort: 8080
+          env:
+            - name: PROTOOS_DATA_DIR
+              value: /data
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: data
+          emptyDir: {}
