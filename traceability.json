@@ -1,7 +1,14 @@
 {
   "version": "0.2.0",
-  "requirements": 53,
+  "total": 53,
   "implemented": 38,
   "partial": 11,
-  "deferred": 4
+  "deferred": 4,
+  "requirements": [
+    {"id": "P1", "req": "Compose, don't replace", "status": "implemented"},
+    {"id": "P2", "req": "Policy-first autonomy", "status": "implemented"},
+    {"id": "C1", "req": "Constellation graph", "status": "implemented"},
+    {"id": "V1", "req": "Obsidian vault", "status": "implemented"},
+    {"id": "X1", "req": "Rust control plane", "status": "deferred"}
+  ]
 }
