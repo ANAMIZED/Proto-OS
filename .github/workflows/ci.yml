@@ -16,17 +16,24 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install optional crypto (Ed25519)
+      - name: Install package + optional crypto
         run: |
           python -m pip install --upgrade pip
-          pip install "cryptography>=42.0.0" || true
+          pip install -e ".[crypto,dev]" || pip install "cryptography>=42.0.0" || true
 
-      - name: Unit tests
+      - name: Unit tests (95)
         run: |
           export PYTHONPATH=$PWD
           python3 -m unittest discover -s tests -v
 
-      - name: Full verification (traceability + live smoke)
+      - name: Full verification (traceability + live smoke + constellation + vault)
         run: |
           export PYTHONPATH=$PWD
           python3 -m protoos.verify
+
+      - name: CLI surfaces
+        run: |
+          export PYTHONPATH=$PWD
+          python3 -m protoos.cli status
+          python3 -m protoos.cli graph /tmp/protoos-ci-graph
+          python3 -m protoos.cli vault /tmp/protoos-ci-vault.zip

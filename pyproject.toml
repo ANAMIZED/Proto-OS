@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.12"
 license = {text = "Apache-2.0"}
 authors = [{name = "The ProtoOS Authors"}]
-keywords = ["agents", "mcp", "a2a", "ap2", "x402", "policy", "autonomous", "os"]
+keywords = ["agents", "mcp", "a2a", "ap2", "x402", "policy", "autonomous", "os", "sdk", "cli"]
 dependencies = []
 
 [project.optional-dependencies]
@@ -18,7 +18,10 @@ crypto = ["cryptography>=42.0.0"]
 dev = ["pytest>=8.0.0"]
 
 [project.scripts]
+protoos = "protoos.cli:main"
+protoos-cli = "protoos.cli:main"
 protoos-verify = "protoos.verify:main"
+protoos-mcp = "protoos.mcp:main"
 
 [tool.setuptools.packages.find]
 include = ["protoos*"]

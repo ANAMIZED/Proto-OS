@@ -14,11 +14,14 @@ Pure Python 3.12 standard library (+ optional `cryptography` for Ed25519). Zero 
 ## How to run & verify
 
 ```bash
-python3 -m unittest discover -s tests -v
-python3 demo.py
-python3 -m protoos.verify          # traceability + live smoke + constellation + vault
-python3 -m protoos.graph out/      # constellation.{json,dot,svg}
-python3 -m protoos.vault vault.zip # Obsidian vault
+python3 -m unittest discover -s tests -v          # 95 tests
+python3 demo.py                                   # end-to-end scenario
+python3 -m protoos.verify                         # traceability + live smoke + constellation + vault
+python3 -m protoos.cli status
+python3 -m protoos.cli graph out/
+python3 -m protoos.cli vault vault.zip
+python3 -m protoos.graph out/                     # constellation.{json,dot,svg}
+python3 -m protoos.vault vault.zip                # Obsidian vault
 ```
 
 ## Hard rules for agents
@@ -32,13 +35,22 @@ python3 -m protoos.vault vault.zip # Obsidian vault
 
 ## Surfaces that must stay working
 
-- PolicyEngine + MandateStore (AP2 Intent→Cart→Payment)
-- Identity (DID, VC, token exchange)
-- Wallet / multi-rail spending (x402, MPP, traditional)
-- MCP (server/client, paid tools, OpenAPI→MCP, mux, cache)
-- A2A task lifecycle + AG-UI event bus
-- Registry (local/federated/well-known + semantic index)
-- Orchestration (delegate, budgets, TaskGraph)
-- Constellation graph + Obsidian vault
-- Hash-chained audit + integrity verification
-- Kubernetes CRD shapes in `deploy/k8s/`
+| Surface | Entry |
+|---------|-------|
+| PolicyEngine + MandateStore (AP2) | `protoos/policy.py` |
+| Identity (DID, VC, token exchange) | `protoos/identity.py` |
+| Wallet / multi-rail (x402, MPP, traditional) | `protoos/wallet.py` |
+| MCP (server/client, paid tools, OpenAPI→MCP, mux) | `protoos/mcp.py` · `protoos-mcp` |
+| A2A task lifecycle + AG-UI | `protoos/a2a.py` |
+| Registry (local/federated/well-known + semantic) | `protoos/registry.py` |
+| Orchestration (delegate, budgets, TaskGraph) | `protoos/core.py`, `runtime.py` |
+| Constellation graph + Obsidian vault | `protoos/graph.py`, `vault.py` |
+| HTTP/JSON-RPC + SSE | `protoos/httpapi.py` |
+| CLI | `protoos-cli` / `python -m protoos.cli` |
+| SDK | `from protoos.sdk import ProtoOSClient` |
+| Skills | `skills/*/SKILL.md` |
+| Multi-agent workflows | discovery + budgeted delegate + TaskGraph |
+| Hash-chained audit + integrity | `protoos/audit.py` · `verify` |
+| Kubernetes CRD shapes | `deploy/k8s/` |
+| CI | `.github/workflows/ci.yml` |
+| AGENTS.md | this file |
