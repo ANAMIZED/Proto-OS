@@ -77,6 +77,9 @@ class LocalRegistry:
     def list(self) -> list[UnifiedAgentCard]:
         return list(self._cards.values())
 
+    def all(self) -> list[UnifiedAgentCard]:
+        return self.list()
+
     def to_crd(self, card: UnifiedAgentCard) -> dict:
         return {
             "apiVersion": "proto.dev/v1", "kind": "AgentCard",
@@ -103,6 +106,15 @@ class WellKnownDirectory:
             return None
         return UnifiedAgentCard.from_json(json.loads(p.read_text()))
 
+    def list(self) -> list[UnifiedAgentCard]:
+        out = []
+        for p in self.root.rglob("agent.json"):
+            try:
+                out.append(UnifiedAgentCard.from_json(json.loads(p.read_text())))
+            except Exception:
+                pass
+        return out
+
 
 class FederatedRegistry:
     def __init__(self, backends: list):
@@ -117,11 +129,14 @@ class FederatedRegistry:
         seen = set()
         out = []
         for b in self.backends:
-            for c in b.list() if hasattr(b, "list") else []:
+            for c in (b.list() if hasattr(b, "list") else []):
                 if c.did not in seen:
                     seen.add(c.did)
                     out.append(c)
         return out
+
+    def all(self) -> list[UnifiedAgentCard]:
+        return self.list()
 
     def get(self, did: str) -> UnifiedAgentCard | None:
         for b in self.backends:
