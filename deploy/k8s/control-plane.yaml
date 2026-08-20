@@ -1,31 +1,42 @@
-# ProtoOS control-plane Deployment (reference shapes).
+# ProtoOS control plane: Deployment + Service exposing the transport surface
+# implemented in protoos/httpapi.py (/mcp, /a2a, /agui/<run>, /.well-known/agents).
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: protoos-control-plane
-  labels:
-    app: protoos
+  labels: {app: protoos}
 spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: protoos
+  replicas: 2
+  selector: {matchLabels: {app: protoos}}
   template:
-    metadata:
-      labels:
-        app: protoos
+    metadata: {labels: {app: protoos}}
     spec:
       containers:
         - name: control-plane
-          image: protoos:0.2.0
+          image: protoos/control-plane:0.2.0
           ports:
             - containerPort: 8080
+              name: http
           env:
             - name: PROTOOS_DATA_DIR
               value: /data
           volumeMounts:
             - name: data
               mountPath: /data
+          readinessProbe:
+            httpGet: {path: /.well-known/agents, port: 8080}
+            initialDelaySeconds: 2
       volumes:
         - name: data
           emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: protoos-control-plane
+spec:
+  selector: {app: protoos}
+  ports:
+    - port: 80
+      targetPort: 8080
+      name: http

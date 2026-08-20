@@ -1,14 +1,381 @@
 {
-  "version": "0.2.0",
-  "total": 53,
-  "implemented": 38,
-  "partial": 11,
-  "deferred": 4,
+  "spec": "Proto architecture document (user-supplied)",
+  "statuses": {
+    "implemented": "behavior fully working and tested in this build (in-process/loopback transports where the spec names a wire protocol)",
+    "partial": "core mechanism working and tested; a named sub-aspect is stubbed, simulated, or reduced in scope",
+    "deferred": "cannot be completed in this offline sandbox (no network egress, no cluster, no external SDKs) or is an organizational/process item; disposition and forward path documented"
+  },
   "requirements": [
-    {"id": "P1", "req": "Compose, don't replace", "status": "implemented"},
-    {"id": "P2", "req": "Policy-first autonomy", "status": "implemented"},
-    {"id": "C1", "req": "Constellation graph", "status": "implemented"},
-    {"id": "V1", "req": "Obsidian vault", "status": "implemented"},
-    {"id": "X1", "req": "Rust control plane", "status": "deferred"}
+    {
+      "id": "P1",
+      "requirement": "Compose, don't replace: adapters/extensions over new wire formats",
+      "status": "implemented",
+      "evidence": "protoos/mcp.py, a2a.py, wallet.py, commerce.py; all adapter tests",
+      "notes": "No new wire format introduced; Unified Agent Card is a superset manifest, not a protocol."
+    },
+    {
+      "id": "P2",
+      "requirement": "Policy-first autonomy: every tool call, delegation, payment through policy engine with cryptographic mandates and audit trails",
+      "status": "implemented",
+      "evidence": "protoos/policy.py, core.py:_gate, wallet.py:precheck; tests test_G2_*, test_I3_*, test_M1_*",
+      "notes": "Sensitive actions default-deny; every decision written to hash-chained audit."
+    },
+    {
+      "id": "P3",
+      "requirement": "Layered sovereignty: fully local/enterprise, federated, and open-internet (ANP/DID) modes",
+      "status": "partial",
+      "evidence": "registry.py LocalRegistry/FederatedRegistry/WellKnownDirectory; identity.py register_web_alias; tests test_D2_*, test_I1_did_document_and_web_alias_wellknown",
+      "notes": "Open mode publishes /.well-known/agent.json and did:web docs to a local root — live internet resolution deferred (egress disabled)."
+    },
+    {
+      "id": "P4",
+      "requirement": "Kubernetes-native by default, with optional lighter-weight runtimes",
+      "status": "partial",
+      "evidence": "deploy/k8s/crds.yaml + control-plane.yaml; registry.py CRD-shaped records; the whole package runs as the lighter-weight runtime",
+      "notes": "CRDs and Deployment manifests provided and CRD shapes exercised in tests; applying to a live cluster deferred (no cluster in sandbox)."
+    },
+    {
+      "id": "P5",
+      "requirement": "Multi-rail everything: tools (MCP), messaging (A2A+ANP), payments (x402+MPP+traditional), identity (DIDs+TAP+enterprise IdP)",
+      "status": "implemented",
+      "evidence": "mcp.py, a2a.py, wallet.py rails, identity.py EnterpriseIdPStub; tests test_T1_*, test_R1_*, test_M1/M4_*, test_I2_*",
+      "notes": "—"
+    },
+    {
+      "id": "P6",
+      "requirement": "Human-in-the-loop as a first-class primitive (AG-UI + mandate types)",
+      "status": "implemented",
+      "evidence": "core.py PendingApproval/_gate/approve, a2a.py HUMAN_INPUT_* events; tests test_M1_E2E_large_purchase_requires_human_then_settles, test_U2_E2E_human_declines_no_money_moves",
+      "notes": "require_approval is a policy effect; approvals stream over AG-UI and resolve/settle atomically."
+    },
+    {
+      "id": "P7",
+      "requirement": "Open governance under a Linux-Foundation-style neutral foundation from day one",
+      "status": "deferred",
+      "evidence": "GOVERNANCE.md, LICENSE",
+      "notes": "Organizational/legal process; cannot be executed by software in a sandbox. Charter draft included."
+    },
+    {
+      "id": "C1",
+      "requirement": "Control plane: Policy Engine + Mandate Store",
+      "status": "implemented",
+      "evidence": "protoos/policy.py; tests TestPolicyEngine, TestMandates",
+      "notes": "—"
+    },
+    {
+      "id": "C2",
+      "requirement": "Control plane: Orchestrator / Task Graph",
+      "status": "implemented",
+      "evidence": "runtime.py TaskGraph, core.py run/delegate; tests test_R3_taskgraph_dag_order_and_cycle, TestOrchestration",
+      "notes": "—"
+    },
+    {
+      "id": "C3",
+      "requirement": "Control plane: Identity & Credential Service",
+      "status": "implemented",
+      "evidence": "identity.py; tests TestIdentity",
+      "notes": "—"
+    },
+    {
+      "id": "C4",
+      "requirement": "Control plane: Discovery & Registry",
+      "status": "implemented",
+      "evidence": "registry.py; tests TestRegistry, test_D3_R2_discover_then_select_by_cost",
+      "notes": "—"
+    },
+    {
+      "id": "C5",
+      "requirement": "Control plane: Observability & Audit",
+      "status": "implemented",
+      "evidence": "audit.py; tests TestAuditAndTracing, test_C5_export_and_verify_integrity",
+      "notes": "—"
+    },
+    {
+      "id": "C6",
+      "requirement": "Control plane: Wallet / Spending Controller",
+      "status": "implemented",
+      "evidence": "wallet.py; tests TestWallet, TestToolsAndPayments",
+      "notes": "—"
+    },
+    {
+      "id": "C7",
+      "requirement": "Protocol adapter tier: MCP, A2A, AGP / AP2, x402, MPP, TAP / UCP-ACP / AG-UI, ANP, DIDs",
+      "status": "partial",
+      "evidence": "mcp.py, a2a.py, wallet.py, commerce.py, identity.py, registry.py; all adapter tests",
+      "notes": "All named surfaces have working reference-shaped, in-process adapters. AGP appears as routing inspiration (rank_candidates), not a wire adapter; adapters are not certified conformant against published external specs (egress disabled)."
+    },
+    {
+      "id": "C8",
+      "requirement": "Application layer: agent frameworks (LangGraph, CrewAI, ADK, ARC/LMOS DSLs) on top",
+      "status": "partial",
+      "evidence": "core.py OSContext + A2A handler contract; every e2e test agent is written against it",
+      "notes": "Stable handler/OSContext contract any framework can target; concrete third-party bindings deferred (packages not installable offline)."
+    },
+    {
+      "id": "I1",
+      "requirement": "Identity: W3C DIDs (did:web, did:key, ANP did:wba variants) + Verifiable Credentials",
+      "status": "implemented",
+      "evidence": "identity.py Identity/did documents/register_web_alias/issue_vc; tests test_I1_*",
+      "notes": "did:proto is a did:key-style key-hash method; did:web/wba documents publish to a local well-known root — live HTTP resolution deferred (egress disabled)."
+    },
+    {
+      "id": "I2",
+      "requirement": "Bridge to enterprise: OAuth 2.1 / OIDC + TAP-style agent identity",
+      "status": "partial",
+      "evidence": "identity.py EnterpriseIdPStub.bridge_to_proto; test_I2_oidc_tap_bridge",
+      "notes": "OIDC-shaped assertion -> Proto session token with act provenance; full OAuth 2.1 flows against a real IdP deferred."
+    },
+    {
+      "id": "I3",
+      "requirement": "AP2 Mandates (Intent, Cart, Payment) as first-class objects stored and verified by the OS",
+      "status": "implemented",
+      "evidence": "policy.py MandateStore.verify_chain; tests TestMandates, test_I3_E2E_mandate_category_blocks_purchase",
+      "notes": "Chain checks: signatures, linkage, totals, intent max, categories, currency, expiry."
+    },
+    {
+      "id": "I4",
+      "requirement": "Cryptographic identity at creation; short-lived session credentials; RFC 8693-style token exchange",
+      "status": "implemented",
+      "evidence": "identity.py issue_token/exchange_token/revoke_token, core.py create_agent; tests test_I4_*",
+      "notes": "Ed25519 in this environment; OS-verified HMAC fallback when `cryptography` is absent."
+    },
+    {
+      "id": "D1",
+      "requirement": "Unified Agent Card / Capability Manifest — superset of A2A cards, MCP manifests, UCP profiles, ANP/LMOS descriptions (JSON-LD preferred)",
+      "status": "implemented",
+      "evidence": "registry.py UnifiedAgentCard; test_D1_card_superset_roundtrip",
+      "notes": "JSON-LD-lite: @context field carried; full JSON-LD expansion not required by any consumer in this build."
+    },
+    {
+      "id": "D2",
+      "requirement": "Multi-backend registry: local Kubernetes CRDs (LMOS-style), federated directories (AGNTCY-like), open search (ANP), well-known URLs",
+      "status": "implemented",
+      "evidence": "registry.py LocalRegistry/FederatedRegistry/WellKnownDirectory; tests test_D2_*; httpapi.py /.well-known/agents",
+      "notes": "Well-known served over loopback HTTP too."
+    },
+    {
+      "id": "D3",
+      "requirement": "Semantic + vector search over capabilities under policy constraints",
+      "status": "implemented",
+      "evidence": "registry.py SemanticIndex (TF-IDF cosine) with `where` filter; tests test_D3_*",
+      "notes": "Vectorization is TF-IDF (stdlib); swapping in learned embeddings is an isolated seam (requires model download — egress disabled)."
+    },
+    {
+      "id": "R1",
+      "requirement": "Task and workflow model extending the A2A Task lifecycle",
+      "status": "implemented",
+      "evidence": "a2a.py states submitted/working/input-required/completed/failed/canceled; tests TestA2A",
+      "notes": "—"
+    },
+    {
+      "id": "R2",
+      "requirement": "Hierarchical routing inspired by AGP: capability announcements, policy matching, cost-aware selection",
+      "status": "partial",
+      "evidence": "registry.py rank_candidates + SemanticIndex.where, core.py discover; tests test_R2_cost_aware_ranking, test_D3_R2_discover_then_select_by_cost",
+      "notes": "Capability+policy+cost selection implemented; multi-tier AGP gateway topology/announcement gossip deferred."
+    },
+    {
+      "id": "R3",
+      "requirement": "Supervisor agents or declarative graphs delegate via A2A while the OS enforces budgets and policies",
+      "status": "implemented",
+      "evidence": "core.py delegate (policy gate, budget slices), runtime.py TaskGraph; test_R3_E2E_delegate_with_budget_slice",
+      "notes": "—"
+    },
+    {
+      "id": "R4",
+      "requirement": "Native support for short-lived tasks and long-running sessions",
+      "status": "implemented",
+      "evidence": "a2a.py input-required parking/resume, runtime.py SessionManager; tests test_R1_input_required_resume_long_running, test_R4_session_manager_long_running",
+      "notes": "—"
+    },
+    {
+      "id": "T1",
+      "requirement": "First-class MCP client and server support, including paid MCP tools via x402/MPP wrappers",
+      "status": "implemented",
+      "evidence": "mcp.py MCPServer/MCPClient, core.py call_tool auto-payment; tests test_T1_*, test_M1_E2E_paid_tool_autopays_x402_under_budget, test_M4_E2E_paid_tool_via_mpp_session",
+      "notes": "402-coded error carries an x402 challenge; OS pays via budgeted x402 or an MPP session and retries."
+    },
+    {
+      "id": "T2",
+      "requirement": "Automatic OpenAPI -> MCP conversion and federation of multiple MCP servers",
+      "status": "implemented",
+      "evidence": "mcp.py openapi_to_mcp, MCPMux; tests test_T2_*",
+      "notes": "Converter accepts a live transport; default offline transport returns structured simulated calls (egress disabled)."
+    },
+    {
+      "id": "T3",
+      "requirement": "Resource and prompt caching with policy-based access control",
+      "status": "implemented",
+      "evidence": "mcp.py ResourceCache (LRU + policy gate); test_T3_resource_cache_policy_and_lru",
+      "notes": "—"
+    },
+    {
+      "id": "M1",
+      "requirement": "Unified spending controller: AP2 authorization, then settlement via x402 (crypto/micro), MPP (multi-rail/sessions), or traditional rails",
+      "status": "implemented",
+      "evidence": "wallet.py SpendingController.precheck/settle + three rails; tests test_M1_*",
+      "notes": "Facilitator/clearing are in-process simulations; connecting real crypto or banking networks deferred (egress disabled)."
+    },
+    {
+      "id": "M2",
+      "requirement": "UCP/ACP for product discovery and checkout flows",
+      "status": "implemented",
+      "evidence": "commerce.py Catalog.search/checkout feeding CartMandates; purchase-flow e2e tests",
+      "notes": "Reference-shaped; not certified against external UCP/ACP specs."
+    },
+    {
+      "id": "M3",
+      "requirement": "Built-in budget hierarchies, category controls, time windows, cumulative limits",
+      "status": "implemented",
+      "evidence": "wallet.py Budget/check_budget/spent roll-up; tests test_M3_*",
+      "notes": "Spend rolls up ancestors; windows are rolling."
+    },
+    {
+      "id": "M4",
+      "requirement": "MPP-style sessions for high-frequency tool or API use",
+      "status": "implemented",
+      "evidence": "wallet.py MPPRail open/charge/close+refund; tests test_M4_*",
+      "notes": "—"
+    },
+    {
+      "id": "U1",
+      "requirement": "AG-UI as the standard event stream to frontends",
+      "status": "implemented",
+      "evidence": "a2a.py AGUIBus, httpapi.py SSE endpoint; tests TestAGUI, test_X4_http_jsonrpc_wellknown_and_sse",
+      "notes": "—"
+    },
+    {
+      "id": "U2",
+      "requirement": "Generative UI patterns, shared state, human approvals, multi-client (web, mobile, terminal, chat)",
+      "status": "partial",
+      "evidence": "AGUIBus state deltas + multi-subscriber, approvals over the stream; tests test_U1/U2_*",
+      "notes": "Shared state, approvals and multi-client subscription implemented; rendered generative-UI component library deferred (event payloads carry the data)."
+    },
+    {
+      "id": "G1",
+      "requirement": "Declarative policy language (CEL-like) + higher-level DSL, evaluated on every sensitive action",
+      "status": "implemented",
+      "evidence": "policy.py safe_eval (whitelisted AST) + Rule schema; tests test_G1_*",
+      "notes": "No eval(); attribute access, calls and arithmetic are rejected."
+    },
+    {
+      "id": "G2",
+      "requirement": "Four-layer policy stack: platform, legal/jurisdictional, organization, personal/user",
+      "status": "implemented",
+      "evidence": "policy.py LAYERS + deny-overrides precedence; tests test_G2_*",
+      "notes": "—"
+    },
+    {
+      "id": "G3",
+      "requirement": "Complete hash-chained audit log of every mandate, tool call, delegation and payment",
+      "status": "implemented",
+      "evidence": "audit.py AuditLog.verify; emission sites across policy/wallet/core/a2a; tests test_G3_*",
+      "notes": "Tamper detection returns the first bad index."
+    },
+    {
+      "id": "G4",
+      "requirement": "Sandboxing, rate limits, and kill switches",
+      "status": "partial",
+      "evidence": "runtime.py RateLimiter/KillSwitch/SandboxedExecutor; tests test_G4_*",
+      "notes": "Rate limits and scoped/global kill switches fully implemented; sandboxing is in-process capability scoping — OS/container-level isolation deferred to the production runtime."
+    },
+    {
+      "id": "O1",
+      "requirement": "OpenTelemetry everywhere + agent-specific traces (task graphs, tool latency, settlement, policy decisions)",
+      "status": "implemented",
+      "evidence": "audit.py Tracer spans over run/tool/purchase/graph; tests test_O1_*; export via ProtoOS.export",
+      "notes": "OTel-shaped spans exported as JSONL; OTLP network exporter deferred (egress disabled)."
+    },
+    {
+      "id": "X1",
+      "requirement": "Control plane in Rust",
+      "status": "deferred",
+      "evidence": "README.md porting notes",
+      "notes": "cargo cannot fetch crates offline and std-only Rust lacks JSON/HTTP. The Python reference is the executable specification; module boundaries mirror the intended Rust services."
+    },
+    {
+      "id": "X2",
+      "requirement": "Pluggable agent runtimes (Python/TS preferred)",
+      "status": "partial",
+      "evidence": "Python runtime throughout; A2A handler contract is language-neutral over the HTTP JSON-RPC surface",
+      "notes": "TypeScript runtime deferred (npm registry unreachable)."
+    },
+    {
+      "id": "X3",
+      "requirement": "Storage: etcd/Postgres control plane; object storage + vector DB for manifests and memory",
+      "status": "deferred",
+      "evidence": "In-memory stores + JSONL/well-known file persistence; storage touchpoints isolated per subsystem",
+      "notes": "No etcd/Postgres/object-store services in sandbox; swap-in points documented in README."
+    },
+    {
+      "id": "X4",
+      "requirement": "Transport: HTTP/JSON-RPC + SSE baseline",
+      "status": "implemented",
+      "evidence": "httpapi.py (/mcp, /a2a JSON-RPC; /agui SSE; /.well-known/agents); test_X4_http_jsonrpc_wellknown_and_sse",
+      "notes": "Loopback only (egress disabled)."
+    },
+    {
+      "id": "X5",
+      "requirement": "gRPC and QUIC optional transports",
+      "status": "deferred",
+      "evidence": "—",
+      "notes": "Explicitly optional in spec; grpcio/QUIC libs not installable offline."
+    },
+    {
+      "id": "X6",
+      "requirement": "Crypto: standard libraries + existing x402/MPP/AP2 SDKs",
+      "status": "partial",
+      "evidence": "Ed25519 via `cryptography` (standard library-grade), HMAC fallback; rails implemented natively",
+      "notes": "Official external x402/MPP/AP2 SDKs unavailable offline; native implementations follow the flows described in the spec document."
+    },
+    {
+      "id": "X7",
+      "requirement": "Open-source under Apache 2.0 (or equivalent), neutral-foundation governed",
+      "status": "partial",
+      "evidence": "LICENSE (Apache-2.0), GOVERNANCE.md",
+      "notes": "License applied; foundation formation is an organizational process (see P7)."
+    },
+    {
+      "id": "C1",
+      "requirement": "Constellation graph model: derive nodes/edges (principals, budgets, servers/tools, mandates, receipts, tasks, approvals)",
+      "status": "implemented",
+      "evidence": "protoos/graph.py::build_graph; tests/test_graph.py",
+      "notes": "—"
+    },
+    {
+      "id": "C2",
+      "requirement": "Deterministic force layout: identical worlds and seeds produce identical constellations; velocity-clamped, finite",
+      "status": "implemented",
+      "evidence": "layout; test_layout_deterministic_and_finite",
+      "notes": "—"
+    },
+    {
+      "id": "C3",
+      "requirement": "Constellation exports: JSON, Graphviz DOT, standalone SVG snapshot in the ledger palette",
+      "status": "implemented",
+      "evidence": "to_json/to_dot/to_svg; python3 -m protoos.graph",
+      "notes": "—"
+    },
+    {
+      "id": "V1",
+      "requirement": "Obsidian vault export: every identity, budget, mandate, receipt, and task becomes a wikilinked markdown note; policy/audit/feed tables; dir or zip",
+      "status": "implemented",
+      "evidence": "protoos/vault.py; tests/test_vault.py",
+      "notes": "—"
+    },
+    {
+      "id": "V2",
+      "requirement": "Vault link integrity: all [[wikilinks]] resolve to existing notes; no private key material exported",
+      "status": "implemented",
+      "evidence": "unresolved_links; hygiene test",
+      "notes": "—"
+    },
+    {
+      "id": "V3",
+      "requirement": "Vault reflects ledger truth: audit table row-for-row with the hash chain, verdict recomputed at export",
+      "status": "implemented",
+      "evidence": "test_audit_note_matches_chain",
+      "notes": "—"
+    }
   ]
 }

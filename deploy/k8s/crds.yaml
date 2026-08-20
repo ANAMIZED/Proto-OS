@@ -18,27 +18,23 @@ spec:
           properties:
             spec:
               type: object
-              required: [did, name]
               properties:
                 did: {type: string}
                 name: {type: string}
                 description: {type: string}
-                skills: {type: array, items: {type: object, x-kubernetes-preserve-unknown-fields: true}}
-                tools: {type: array, items: {type: string}}
-                products: {type: array, items: {type: object, x-kubernetes-preserve-unknown-fields: true}}
-                endpoints: {type: object, x-kubernetes-preserve-unknown-fields: true}
-                protocols: {type: array, items: {type: string}}
-                cost: {type: object, x-kubernetes-preserve-unknown-fields: true}
-                labels: {type: object, x-kubernetes-preserve-unknown-fields: true}
+                capabilities: {type: array, items: {type: string}}
+                cost: {type: object}
+                endpoints: {type: object}
+                @context: {type: array, items: {type: string}}
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
-  name: policyrules.proto.dev
+  name: budgets.proto.dev
 spec:
   group: proto.dev
   scope: Namespaced
-  names: {plural: policyrules, singular: policyrule, kind: PolicyRule, shortNames: [pr]}
+  names: {plural: budgets, singular: budget, kind: Budget, shortNames: [bdg]}
   versions:
     - name: v1
       served: true
@@ -50,8 +46,36 @@ spec:
             spec:
               type: object
               properties:
-                layer: {type: string}
-                effect: {type: string}
-                actions: {type: array, items: {type: string}}
-                condition: {type: string}
-                description: {type: string}
+                ownerDid: {type: string}
+                limit: {type: number}
+                window: {type: object}
+                categories: {type: array, items: {type: string}}
+                parent: {type: string}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: mandates.proto.dev
+spec:
+  group: proto.dev
+  scope: Namespaced
+  names: {plural: mandates, singular: mandate, kind: Mandate, shortNames: [mnd]}
+  versions:
+    - name: v1
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                type: {type: string, enum: [intent, cart, payment]}
+                principal: {type: string}
+                amount: {type: number}
+                currency: {type: string}
+                categories: {type: array, items: {type: string}}
+                expires: {type: string}
+                signature: {type: string}
+                parent: {type: string}
