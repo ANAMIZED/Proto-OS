@@ -1,4 +1,4 @@
-# ProtoOS v0.2.0 — Unified Autonomous Protocols Operating System (reference implementation)
+# PROTO OS "Autonomous Protocols Operating System"
 
 ## New in 0.2.0 — Constellation & Obsidian vault
 
