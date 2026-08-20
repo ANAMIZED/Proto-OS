@@ -19,13 +19,16 @@ jobs:
       - name: Extract exact proto-os-v0.2.0 sources (byte-for-byte from ZIP)
         run: |
           unzip -o proto-os-v0.2.0.zip
-          # overlay exact modules + tests from the authoritative ZIP
+          # overlay exact modules + tests + verification data from the authoritative ZIP
           cp -a proto-os-v0.2.0/protoos/*.py protoos/
           cp -a proto-os-v0.2.0/tests/*.py tests/
           cp -a proto-os-v0.2.0/demo.py .
+          cp -a proto-os-v0.2.0/traceability.json .
           cp -a proto-os-v0.2.0/tools/gen_verification.py tools/ || true
           echo "Extracted exact sources:"
           ls -l protoos/*.py tests/*.py | awk '{print $5, $9}'
+          echo "traceability.json size: $(wc -c < traceability.json)"
+          python3 -c "import json; d=json.load(open('traceability.json')); r=d['requirements'][0]; print('key present:', 'req' in r, 'requirement' in r)"
 
       - name: Install package + optional crypto
         run: |
