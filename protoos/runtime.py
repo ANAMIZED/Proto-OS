@@ -1,31 +1,94 @@
-"""Runtime primitives: rate limits, kill switches, sandboxed execution,
-declarative task graphs and long-running sessions."""
+"""Runtime primitives: TaskGraph, sessions, rate limiter, kill switch, sandbox.
+"""
 from __future__ import annotations
 
-from .canonical import Clock, ProtoError, ProtoHalted, RateLimited, new_id
+import time
+from collections import defaultdict
+from typing import Any, Callable
+
+from .canonical import Clock, ProtoHalted, RateLimited, new_id
+
+
+class TaskGraph:
+    """DAG of tasks; topological order; cycle detection."""
+
+    def __init__(self):
+        self.nodes: dict[str, dict] = {}
+        self.edges: list[tuple[str, str]] = []
+
+    def add(self, task_id: str, meta: dict | None = None) -> None:
+        self.nodes[task_id] = meta or {}
+
+    def edge(self, from_id: str, to_id: str) -> None:
+        self.edges.append((from_id, to_id))
+
+    def order(self) -> list[str]:
+        from collections import deque
+        indeg = defaultdict(int)
+        adj = defaultdict(list)
+        for a, b in self.edges:
+            adj[a].append(b)
+            indeg[b] += 1
+        for n in self.nodes:
+            indeg.setdefault(n, 0)
+        q = deque([n for n in self.nodes if indeg[n] == 0])
+        out = []
+        while q:
+            n = q.popleft()
+            out.append(n)
+            for m in adj[n]:
+                indeg[m] -= 1
+                if indeg[m] == 0:
+                    q.append(m)
+        if len(out) != len(self.nodes):
+            raise ValueError("cycle detected in TaskGraph")
+        return out
+
+
+class SessionManager:
+    def __init__(self, clock: Clock):
+        self.clock = clock
+        self._sessions: dict[str, dict] = {}
+
+    def open(self, principal: str, ttl: float = 3600) -> str:
+        sid = new_id("sess")
+        self._sessions[sid] = {
+            "principal": principal,
+            "opened": self.clock.now(),
+            "expires": self.clock.now() + ttl,
+            "state": {},
+        }
+        return sid
+
+    def get(self, sid: str) -> dict | None:
+        s = self._sessions.get(sid)
+        if not s or s["expires"] < self.clock.now():
+            return None
+        return s
+
+    def close(self, sid: str) -> None:
+        self._sessions.pop(sid, None)
 
 
 class RateLimiter:
-    """Token bucket per key."""
+    """Token-bucket rate limiter."""
 
-    def __init__(self, clock: Clock, rate_per_sec: float = 5.0, burst: int = 10):
+    def __init__(self, clock: Clock, rate_per_sec: float = 10.0, burst: int = 20):
         self.clock = clock
-        self.rate, self.burst = rate_per_sec, burst
-        self._buckets: dict[str, tuple[float, float]] = {}  # key -> (tokens, last_ts)
+        self.rate = rate_per_sec
+        self.burst = burst
+        self._tokens: dict[str, float] = defaultdict(lambda: float(burst))
+        self._last: dict[str, float] = {}
 
-    def allow(self, key: str, cost: float = 1.0) -> bool:
+    def check(self, key: str) -> None:
         now = self.clock.now()
-        tokens, last = self._buckets.get(key, (float(self.burst), now))
-        tokens = min(self.burst, tokens + (now - last) * self.rate)
-        if tokens >= cost:
-            self._buckets[key] = (tokens - cost, now)
-            return True
-        self._buckets[key] = (tokens, now)
-        return False
-
-    def check(self, key: str, cost: float = 1.0) -> None:
-        if not self.allow(key, cost):
-            raise RateLimited(f"rate limit exceeded for {key}")
+        last = self._last.get(key, now)
+        elapsed = now - last
+        self._tokens[key] = min(self.burst, self._tokens[key] + elapsed * self.rate)
+        self._last[key] = now
+        if self._tokens[key] < 1.0:
+            raise RateLimited(f"rate limited: {key}")
+        self._tokens[key] -= 1.0
 
 
 class KillSwitch:
@@ -33,109 +96,36 @@ class KillSwitch:
         self._global = False
         self._scoped: set[str] = set()
 
-    def engage(self, scope: str = "global") -> None:
-        if scope == "global":
+    def engage(self, scope: str | None = None) -> None:
+        if scope is None:
             self._global = True
         else:
             self._scoped.add(scope)
 
-    def release(self, scope: str = "global") -> None:
-        if scope == "global":
+    def release(self, scope: str | None = None) -> None:
+        if scope is None:
             self._global = False
+            self._scoped.clear()
         else:
             self._scoped.discard(scope)
 
-    def engaged(self, scope: str | None = None) -> bool:
-        return self._global or (scope in self._scoped if scope else False)
-
     def check(self, scope: str | None = None) -> None:
-        if self.engaged(scope):
-            raise ProtoHalted(f"kill switch engaged ({'global' if self._global else scope})")
+        if self._global or (scope and scope in self._scoped):
+            raise ProtoHalted("kill switch engaged" + (f" ({scope})" if scope else " (global)"))
 
 
 class SandboxedExecutor:
-    """Capability-scoped tool execution: only whitelisted callables run, with
-    argument size limits. In-process approximation of container sandboxing;
-    real OS-level isolation is deferred to the production runtime."""
+    """In-process capability scoping (production: replace with microVM)."""
 
-    def __init__(self, max_arg_bytes: int = 65536):
-        self._allowed: dict[str, object] = {}
-        self.max_arg_bytes = max_arg_bytes
+    def __init__(self, allowed: set[str] | None = None, max_bytes: int = 1_000_000):
+        self.allowed = allowed or {"read", "compute"}
+        self.max_bytes = max_bytes
 
-    def grant(self, name: str, fn) -> None:
-        self._allowed[name] = fn
-
-    def run(self, name: str, **kwargs):
-        if name not in self._allowed:
-            raise ProtoError(f"sandbox: capability {name!r} not granted")
-        import json as _json
-        if len(_json.dumps(kwargs, default=str)) > self.max_arg_bytes:
-            raise ProtoError("sandbox: arguments exceed size limit")
-        return self._allowed[name](**kwargs)
-
-
-class TaskGraph:
-    """Declarative DAG of named steps with dependencies; runs topologically
-    under tracer + kill-switch supervision."""
-
-    def __init__(self, name: str = "graph"):
-        self.name = name
-        self._nodes: dict[str, tuple[object, list[str]]] = {}
-
-    def add(self, name: str, fn, deps: list[str] | None = None) -> "TaskGraph":
-        self._nodes[name] = (fn, list(deps or []))
-        return self
-
-    def run(self, tracer=None, killswitch: KillSwitch | None = None) -> dict:
-        for n, (_, deps) in self._nodes.items():
-            for d in deps:
-                if d not in self._nodes:
-                    raise ProtoError(f"task graph: unknown dependency {d!r} of {n!r}")
-        done: dict[str, object] = {}
-        remaining = dict(self._nodes)
-        while remaining:
-            ready = [n for n, (_, deps) in remaining.items() if all(d in done for d in deps)]
-            if not ready:
-                raise ProtoError("task graph: cycle detected")
-            for n in ready:
-                if killswitch:
-                    killswitch.check()
-                fn, deps = remaining.pop(n)
-                inputs = {d: done[d] for d in deps}
-                if tracer:
-                    with tracer.span(f"graph:{self.name}:{n}", {"deps": deps}):
-                        done[n] = fn(**inputs) if deps else fn()
-                else:
-                    done[n] = fn(**inputs) if deps else fn()
-        return done
-
-
-class SessionManager:
-    """Long-running session contexts surviving across many task turns."""
-
-    def __init__(self, clock: Clock):
-        self.clock = clock
-        self._sessions: dict[str, dict] = {}
-
-    def create(self, owner: str, state: dict | None = None) -> str:
-        sid = new_id("sess")
-        self._sessions[sid] = {"owner": owner, "created": self.clock.now(),
-                               "updated": self.clock.now(), "state": dict(state or {}),
-                               "open": True}
-        return sid
-
-    def get(self, sid: str) -> dict:
-        if sid not in self._sessions:
-            raise ProtoError(f"unknown session {sid}")
-        return self._sessions[sid]
-
-    def update(self, sid: str, **delta) -> dict:
-        s = self.get(sid)
-        if not s["open"]:
-            raise ProtoError(f"session {sid} is closed")
-        s["state"].update(delta)
-        s["updated"] = self.clock.now()
-        return dict(s["state"])
-
-    def close(self, sid: str) -> None:
-        self.get(sid)["open"] = False
+    def run(self, fn: Callable, *args, capabilities: set[str] | None = None, **kwargs) -> Any:
+        caps = capabilities or set()
+        if not caps.issubset(self.allowed):
+            raise PermissionError(f"capabilities {caps - self.allowed} not allowed")
+        result = fn(*args, **kwargs)
+        if isinstance(result, (str, bytes)) and len(result) > self.max_bytes:
+            raise ValueError("result exceeds size limit")
+        return result

@@ -1,66 +1,58 @@
-"""Canonical encoding, hashing, identifiers and clocks for ProtoOS."""
+"""Shared primitives: ids, clocks, errors, canonical JSON.
+"""
 from __future__ import annotations
 
-import base64
 import hashlib
 import json
-import threading
 import time
 import uuid
+from typing import Any
 
 
-def cjson(obj) -> str:
-    """Deterministic canonical JSON used for all signing and hashing."""
-    return json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+def new_id(prefix: str = "id") -> str:
+    return f"{prefix}_{uuid.uuid4().hex[:16]}"
 
 
-def sha256_hex(data) -> str:
-    if isinstance(data, str):
-        data = data.encode("utf-8")
-    return hashlib.sha256(data).hexdigest()
-
-
-def b32(data: bytes) -> str:
-    return base64.b32encode(data).decode("ascii").rstrip("=").lower()
-
-
-def new_id(prefix: str) -> str:
-    return f"{prefix}_{uuid.uuid4().hex[:20]}"
+def cjson(obj: Any) -> str:
+    """Canonical JSON (sorted keys, no whitespace) for hashing/signing."""
+    return json.dumps(obj, sort_keys=True, separators=(",", ":"), default=str)
 
 
 class Clock:
-    """Wall clock; injectable for deterministic tests."""
-
     def now(self) -> float:
         return time.time()
 
 
 class FixedClock(Clock):
-    def __init__(self, start: float = 1_700_000_000.0):
-        self._t = float(start)
-        self._lock = threading.Lock()
+    def __init__(self, t: float = 1_700_000_000.0):
+        self._t = t
 
     def now(self) -> float:
         return self._t
 
-    def advance(self, seconds: float) -> float:
-        with self._lock:
-            self._t += seconds
-            return self._t
+    def advance(self, seconds: float) -> None:
+        self._t += seconds
 
 
 class ProtoError(Exception):
-    """Base error for ProtoOS."""
+    pass
 
 
 class PolicyDenied(ProtoError):
-    def __init__(self, action: str, reason: str, rule_id: str | None = None):
-        super().__init__(f"policy denied '{action}': {reason}" + (f" (rule {rule_id})" if rule_id else ""))
-        self.action, self.reason, self.rule_id = action, reason, rule_id
+    def __init__(self, action: str, reason: str = "denied"):
+        self.action, self.reason = action, reason
+        super().__init__(f"policy denied {action}: {reason}")
+
+
+class BudgetExceeded(ProtoError):
+    def __init__(self, budget_id: str, reason: str = "exceeded"):
+        self.budget_id, self.reason = budget_id, reason
+        super().__init__(f"budget {budget_id}: {reason}")
 
 
 class ProtoHalted(ProtoError):
-    """Raised when a kill switch is engaged."""
+    def __init__(self, reason: str = "kill switch engaged"):
+        super().__init__(reason)
 
 
 class RateLimited(ProtoError):
@@ -68,8 +60,4 @@ class RateLimited(ProtoError):
 
 
 class MandateInvalid(ProtoError):
-    pass
-
-
-class BudgetExceeded(ProtoError):
     pass
