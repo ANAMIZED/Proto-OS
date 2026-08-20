@@ -3,7 +3,7 @@ import unittest
 import tempfile
 from pathlib import Path
 from protoos import ProtoOS
-from protoos.vault import write_vault, write_vault_zip, unresolved_links
+from protoos.vault import write_vault, write_vault_zip, unresolved_links, vault_notes
 
 class VaultTests(unittest.TestCase):
     def setUp(self):
@@ -12,15 +12,13 @@ class VaultTests(unittest.TestCase):
         self.os.wallet.create_budget(u.did, 200.0)
 
     def test_note_population(self):
-        with tempfile.TemporaryDirectory() as d:
-            n = write_vault(self.os, d)
-            self.assertGreater(n, 0)
+        notes = vault_notes(self.os)
+        self.assertGreater(len(notes), 0)
 
     def test_wikilinks_all_resolve(self):
-        with tempfile.TemporaryDirectory() as d:
-            write_vault(self.os, d)
-            bad = unresolved_links(d)
-            self.assertEqual(bad, [])
+        notes = vault_notes(self.os)
+        bad = unresolved_links(notes)
+        self.assertEqual(bad, [])
 
     def test_zip_roundtrip(self):
         with tempfile.TemporaryDirectory() as d:
