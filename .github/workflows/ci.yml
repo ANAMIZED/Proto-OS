@@ -22,7 +22,11 @@ jobs:
           pip install "cryptography>=42.0.0" || true
 
       - name: Unit tests
-        run: python3 -m unittest discover -s tests -v
+        run: |
+          export PYTHONPATH=$PWD
+          python3 -m unittest discover -s tests -v
 
-      - name: Full verification (traceability + live smoke + constellation + vault)
-        run: python3 -m protoos.verify
+      - name: Full verification (traceability + live smoke)
+        run: |
+          export PYTHONPATH=$PWD
+          python3 -m protoos.verify
